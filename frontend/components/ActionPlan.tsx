@@ -1,5 +1,7 @@
 'use client';
 
+import { ExportShare } from './ExportShare';
+
 import { MilestoneTimeline } from './MilestoneTimeline';
 
 interface ActionPlanProps {
@@ -49,7 +51,16 @@ export function ActionPlan({ plan }: ActionPlanProps) {
   };
   
   return (
-    <div className="mt-4 p-5 bg-card border border-border rounded-lg">
+    <div className="mt-4 p-5 bg-card border border-border rounded-lg relative">
+      <div className="absolute top-4 right-4 z-10">
+        <ExportShare
+          data={{
+            type: 'action_plan',
+            title: 'Action Plan',
+            content: plan
+          }}
+        />
+      </div>
       <div className="flex items-center gap-2 mb-4">
         <span className="text-2xl">📋</span>
         <h3 className="text-lg font-semibold text-foreground">Your Action Plan</h3>

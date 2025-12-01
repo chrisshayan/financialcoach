@@ -5,6 +5,7 @@ import { DTIGauge } from './DTIGauge';
 import { ReadinessScoreChart } from './ReadinessScoreChart';
 import { SavingsProgress } from './SavingsProgress';
 import { TransactionAnalysis } from './TransactionAnalysis';
+import { ExportShare } from './ExportShare';
 
 interface CalculationCardProps {
   result: CalculationResult;
@@ -136,7 +137,16 @@ export function CalculationCard({ result }: CalculationCardProps) {
     };
     
     return (
-      <div className="mt-3 p-6 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl">
+      <div className="mt-3 p-6 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl relative">
+        <div className="absolute top-4 right-4 z-10">
+          <ExportShare
+            data={{
+              type: 'readiness',
+              title: 'Readiness Score Report',
+              content: result
+            }}
+          />
+        </div>
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-lg bg-primary/20">
             <span className="text-2xl">🎯</span>

@@ -13,6 +13,9 @@ import { ProductRecommendations } from '@/components/ProductRecommendations';
 import { CLVCalculator } from '@/components/CLVCalculator';
 import { ScenarioPlanner } from '@/components/ScenarioPlanner';
 import { Marketplace } from '@/components/Marketplace';
+import { DataMesh } from '@/components/DataMesh';
+import { ExportShare } from '@/components/ExportShare';
+import { SettingsPanel } from '@/components/SettingsPanel';
 import { useConversation } from '@/hooks/useConversation';
 import { streamChatMessage } from '@/lib/chat-client';
 
@@ -33,6 +36,7 @@ export default function Home() {
   const [selectedPersona, setSelectedPersona] = useState('user_001');
   const [userContext, setUserContext] = useState<any>(null);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const scrollToBottom = () => {
@@ -145,15 +149,26 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Left Sidebar */}
-      <div className="w-80 border-r border-border bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
+      <div className="w-[480px] border-r border-border bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-border">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
-            Financial Coach
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            AI-powered homeownership guide
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent">
+                Financial Coach
+              </h1>
+              <p className="text-xs text-muted-foreground mt-1">
+                AI-powered homeownership guide
+              </p>
+            </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 hover:bg-muted/50 rounded-lg transition-colors"
+              title="Settings"
+            >
+              <span className="text-lg">⚙️</span>
+            </button>
+          </div>
         </div>
         
         {/* Sidebar Content */}
@@ -169,6 +184,9 @@ export default function Home() {
             }}
           />
           {userContext && <UserProfile userContext={userContext} />}
+          
+          {/* Data Mesh */}
+          <DataMesh userContext={userContext} />
           
           {/* Progress Dashboard */}
           <ProgressDashboard
@@ -266,35 +284,41 @@ export default function Home() {
                     )}
                     {/* Show CLV Calculator after readiness score */}
                     {msg.calculationResult.readiness_score !== undefined && (
-                      <CLVCalculator
-                        userContext={userContext}
-                        readinessScore={msg.calculationResult.readiness_score}
-                        dti={msg.calculationResult.dti}
-                      />
+                      <div className="relative">
+                        <div className="absolute top-4 right-4 z-10">
+                          <ExportShare
+                            data={{
+                              type: 'clv',
+                              title: 'CLV Analysis Report',
+                              content: msg.calculationResult
+                            }}
+                          />
+                        </div>
+                        <CLVCalculator
+                          userContext={userContext}
+                          readinessScore={msg.calculationResult.readiness_score}
+                          dti={msg.calculationResult.dti}
+                        />
+                      </div>
                     )}
                     {/* Show Scenario Planner after DTI or readiness */}
                     {(msg.calculationResult.dti !== undefined || msg.calculationResult.readiness_score !== undefined) && (
-                      <ScenarioPlanner
-                        userContext={userContext}
-                        currentReadiness={msg.calculationResult.readiness_score || 0}
-                        currentDTI={msg.calculationResult.dti || 0                        }
-                      />
-                    )}
-                    {/* Show CLV Calculator after readiness score */}
-                    {msg.calculationResult.readiness_score !== undefined && (
-                      <CLVCalculator
-                        userContext={userContext}
-                        readinessScore={msg.calculationResult.readiness_score}
-                        dti={msg.calculationResult.dti}
-                      />
-                    )}
-                    {/* Show Scenario Planner after DTI or readiness */}
-                    {(msg.calculationResult.dti !== undefined || msg.calculationResult.readiness_score !== undefined) && (
-                      <ScenarioPlanner
-                        userContext={userContext}
-                        currentReadiness={msg.calculationResult.readiness_score || 0}
-                        currentDTI={msg.calculationResult.dti || 0}
-                      />
+                      <div className="relative">
+                        <div className="absolute top-4 right-4 z-10">
+                          <ExportShare
+                            data={{
+                              type: 'scenario',
+                              title: 'Scenario Planning Report',
+                              content: msg.calculationResult
+                            }}
+                          />
+                        </div>
+                        <ScenarioPlanner
+                          userContext={userContext}
+                          currentReadiness={msg.calculationResult.readiness_score || 0}
+                          currentDTI={msg.calculationResult.dti || 0}
+                        />
+                      </div>
                     )}
                   </>
                 )}
@@ -311,9 +335,12 @@ export default function Home() {
               />
             )}
             
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
           </div>
         </div>
+        
+        {/* Settings Panel */}
+        <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
         
         {/* Input Area */}
         <div className="p-4 border-t border-border bg-card/50 backdrop-blur-sm">

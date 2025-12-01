@@ -1,6 +1,7 @@
 'use client';
 
 import { CalculationResult } from '@/types/chat';
+import { ExportShare } from './ExportShare';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 
 interface TransactionAnalysisProps {
@@ -36,7 +37,16 @@ export function TransactionAnalysis({ analysis }: TransactionAnalysisProps) {
     .sort((a, b) => b.yourSpending - a.yourSpending);
 
   return (
-    <div className="mt-3 p-6 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-lg backdrop-blur-sm space-y-6 transition-all duration-300 hover:shadow-xl">
+    <div className="mt-3 p-6 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-lg backdrop-blur-sm space-y-6 transition-all duration-300 hover:shadow-xl relative">
+      <div className="absolute top-4 right-4 z-10">
+        <ExportShare
+          data={{
+            type: 'spending',
+            title: 'Spending Analysis Report',
+            content: analysis
+          }}
+        />
+      </div>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-primary/20">
           <span className="text-2xl">📊</span>
