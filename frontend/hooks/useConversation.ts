@@ -35,9 +35,17 @@ export function useConversation() {
   const addCalculationResult = useCallback((result: CalculationResult) => {
     setMessages(prev => {
       const updated = [...prev];
-      const lastMsg = updated[updated.length - 1];
-      if (lastMsg) {
-        lastMsg.calculationResult = result;
+      // Find the last assistant message and add/merge calculation result
+      for (let i = updated.length - 1; i >= 0; i--) {
+        if (updated[i].role === 'assistant') {
+          // Merge with existing calculation result if present
+          if (updated[i].calculationResult) {
+            updated[i].calculationResult = { ...updated[i].calculationResult, ...result };
+          } else {
+            updated[i].calculationResult = result;
+          }
+          break;
+        }
       }
       return updated;
     });

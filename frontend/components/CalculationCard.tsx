@@ -1,6 +1,9 @@
 'use client';
 
 import { CalculationResult } from '@/types/chat';
+import { DTIGauge } from './DTIGauge';
+import { ReadinessScoreChart } from './ReadinessScoreChart';
+import { SavingsProgress } from './SavingsProgress';
 
 interface CalculationCardProps {
   result: CalculationResult;
@@ -13,31 +16,29 @@ export function CalculationCard({ result }: CalculationCardProps) {
     const isGood = dti <= 43;
     
     return (
-      <div className={`mt-3 p-4 rounded-lg border ${
+      <div className={`mt-3 p-5 rounded-lg border ${
         isGood 
           ? 'bg-green-950/30 border-green-800/50' 
           : 'bg-red-950/30 border-red-800/50'
       }`}>
-        <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
           <span className={`text-2xl ${isGood ? 'text-green-400' : 'text-red-400'}`}>
             {isGood ? '✓' : '⚠'}
           </span>
-          DTI Analysis
+          Debt-to-Income Ratio
         </h3>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Debt-to-Income Ratio:</span>
-            <span className={`text-xl font-bold ${isGood ? 'text-green-400' : 'text-red-400'}`}>
-              {dti.toFixed(2)}%
-            </span>
-          </div>
+        
+        {/* DTI Gauge Visualization */}
+        <DTIGauge dti={dti} />
+        
+        <div className="mt-4 space-y-2">
           {!isGood && (
-            <div className="text-sm text-red-400 mt-2">
+            <div className="text-sm text-red-400 p-2 bg-red-950/20 rounded">
               ⚠️ Exceeds recommended 43% limit
             </div>
           )}
           {isGood && (
-            <div className="text-sm text-green-400 mt-2">
+            <div className="text-sm text-green-400 p-2 bg-green-950/20 rounded">
               ✓ Within acceptable limits for most lenders
             </div>
           )}
@@ -91,6 +92,15 @@ export function CalculationCard({ result }: CalculationCardProps) {
               </div>
             </div>
           )}
+          
+          {/* Savings Progress if applicable */}
+          {result.required_down_payment && result.current_savings !== undefined && (
+            <SavingsProgress
+              current={result.current_savings}
+              target={result.required_down_payment}
+              monthlyRate={800} // This could come from user context
+            />
+          )}
         </div>
       </div>
     );
@@ -105,6 +115,7 @@ export function CalculationCard({ result }: CalculationCardProps) {
   // Readiness score card
   if (result.readiness_score !== undefined) {
     const score = result.readiness_score || 0;
+    const breakdown = result.breakdown || {};
     const getScoreColor = (score: number) => {
       if (score >= 80) return 'text-green-400';
       if (score >= 65) return 'text-blue-400';
@@ -113,21 +124,26 @@ export function CalculationCard({ result }: CalculationCardProps) {
     };
     
     return (
-      <div className="mt-3 p-4 bg-card border border-border rounded-lg">
-        <h3 className="font-semibold text-foreground mb-3">Readiness Score</h3>
-        <div className="space-y-3">
+      <div className="mt-3 p-5 bg-card border border-border rounded-lg">
+        <h3 className="font-semibold text-foreground mb-4">Readiness Score</h3>
+        
+        {/* Pie Chart Visualization - only show if we have breakdown data */}
+        {breakdown && Object.keys(breakdown).length > 0 && 
+         (breakdown.dti_score || breakdown.credit_score || breakdown.savings_score || breakdown.employment_score) && (
+          <ReadinessScoreChart breakdown={breakdown} totalScore={score} />
+        )}
+        
+        {/* Overall Score Bar */}
+        <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Overall Score:</span>
-            <div className="flex items-center gap-3">
-              <div className={`text-4xl font-bold ${getScoreColor(score)}`}>
-                {score}
-              </div>
-              <div className="text-muted-foreground">/100</div>
+            <div className={`text-2xl font-bold ${getScoreColor(score)}`}>
+              {score}/100
             </div>
           </div>
-          <div className="w-full bg-muted rounded-full h-2.5">
+          <div className="w-full bg-muted rounded-full h-3">
             <div
-              className={`h-2.5 rounded-full transition-all ${
+              className={`h-3 rounded-full transition-all ${
                 score >= 80 ? 'bg-green-400' :
                 score >= 65 ? 'bg-blue-400' :
                 score >= 50 ? 'bg-yellow-400' : 'bg-red-400'

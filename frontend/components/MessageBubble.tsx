@@ -24,7 +24,21 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           <div className="whitespace-pre-wrap">{message.content}</div>
         ) : (
           <div className="markdown-content prose prose-invert prose-blue max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Simplify action plan mentions since structured version is shown
+                h2: ({node, ...props}: any) => {
+                  const text = props.children?.toString() || '';
+                  if (text.toLowerCase().includes('action plan') || 
+                      text.toLowerCase().includes('priority actions') ||
+                      text.toLowerCase().includes('milestones')) {
+                    return null; // Hide these headings, ActionPlan component will show them
+                  }
+                  return <h2 {...props} />;
+                }
+              }}
+            >
               {message.content}
             </ReactMarkdown>
           </div>

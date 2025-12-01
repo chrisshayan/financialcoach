@@ -26,17 +26,6 @@ export default function Home() {
   const [userContext, setUserContext] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Load user context on mount
-  useEffect(() => {
-    // In a real app, this would come from an API
-    // For now, we'll use mock data structure
-    setUserContext({
-      income: { monthly_gross: 7500, annual_gross: 90000 },
-      savings: { total: 20500 },
-      credit: { score: 720 }
-    });
-  }, []);
-  
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -51,6 +40,17 @@ export default function Home() {
       setShowOnboarding(false);
     }
   }, [messages.length]);
+  
+  // Load user context on mount
+  useEffect(() => {
+    // In a real app, this would come from an API
+    // For now, we'll use mock data structure
+    setUserContext({
+      income: { monthly_gross: 7500, annual_gross: 90000 },
+      savings: { total: 20500 },
+      credit: { score: 720 }
+    });
+  }, []);
   
   const handleSend = async (messageText?: string) => {
     const userMessage = (messageText || input.trim());
@@ -79,11 +79,8 @@ export default function Home() {
           updateLastMessage(typingId, fullResponse);
         },
         (calculation: any) => {
+          // Handle calculation results - can be multiple
           addCalculationResult(calculation);
-          // If it's an action plan, store it separately
-          if (calculation.action_plan || calculation.goal) {
-            // Action plan will be displayed via CalculationCard
-          }
         },
         (suggestions: string[]) => {
           addFollowUpSuggestions(suggestions);
@@ -160,11 +157,13 @@ export default function Home() {
               {msg.calculationResult && (
                 <>
                   <CalculationCard result={msg.calculationResult} />
-                  {msg.calculationResult.action_plan && (
-                    <ActionPlan plan={msg.calculationResult.action_plan} />
-                  )}
-                  {(msg.calculationResult.goal || msg.calculationResult.priority_actions) && (
-                    <ActionPlan plan={msg.calculationResult} />
+                  {/* Show ActionPlan if it's an action plan result */}
+                  {(msg.calculationResult.goal || 
+                    msg.calculationResult.priority_actions || 
+                    msg.calculationResult.action_plan) && (
+                    <ActionPlan plan={
+                      msg.calculationResult.action_plan || msg.calculationResult
+                    } />
                   )}
                 </>
               )}

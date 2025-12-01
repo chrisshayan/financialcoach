@@ -11,7 +11,7 @@ os.environ["LANGCHAIN_API_KEY"] = ""
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 from app.agent.tools import get_financial_tools
 from app.agent.memory_manager import FinancialMemoryManager
@@ -37,6 +37,7 @@ class FinancialAgent:
         
         # Setup memory for contextual conversations
         self.memory_manager = FinancialMemoryManager(user_id)
+        self._last_tool_results = []  # Store tool results from last message
         
         # Create agent using LangChain 1.0+ API
         # Use create_agent which is the new way to create agents
@@ -64,6 +65,7 @@ CRITICAL RULES:
 4. Never invent numbers. Only use numbers returned from tools.
 5. Reference previous conversation context when relevant.
 6. Suggest actionable next steps based on calculations.
+7. When you call create_action_plan tool, DO NOT repeat the entire plan in your response. Just acknowledge that you've created a plan and highlight 1-2 key priorities. The structured plan will be displayed automatically.
 
 User's Current Financial Snapshot:
 - Monthly Income: ${monthly_income:,.0f}
@@ -125,28 +127,68 @@ Conversation Style:
             # Use invoke first to get the full response, then we'll handle streaming
             response = await self.agent_runnable.ainvoke(input_data)
             
-            # Extract the final response from the agent
+            # Extract tool results and final response from the agent
+            tool_results = []
             if "messages" in response:
-                # Find the last AI message (the final response)
-                for message in reversed(response["messages"]):
-                    if hasattr(message, "content") and message.content:
+                # First pass: Extract all tool results
+                for message in response["messages"]:
+                    # Check if this is a ToolMessage (result from tool execution)
+                    if isinstance(message, ToolMessage) or (hasattr(message, "__class__") and "ToolMessage" in str(type(message))):
+                        if hasattr(message, "content") and message.content:
+                            content = str(message.content)
+                            # Try to parse as JSON (tool results)
+                            try:
+                                result = json.loads(content)
+                                if isinstance(result, dict):
+                                    # Store calculation results
+                                    if "dti" in result and "is_affordable" not in result:
+                                        self.memory_manager.store_calculation("dti", result)
+                                        tool_results.append(("dti", result))
+                                    elif "is_affordable" in result:
+                                        self.memory_manager.store_calculation("affordability", result)
+                                        tool_results.append(("affordability", result))
+                                    elif "readiness_score" in result:
+                                        self.memory_manager.store_calculation("readiness", result)
+                                        tool_results.append(("readiness", result))
+                                    elif "action_plan" in result or "priority_actions" in result or "goal" in result:
+                                        self.memory_manager.store_calculation("action_plan", result)
+                                        tool_results.append(("action_plan", result))
+                            except json.JSONDecodeError:
+                                pass  # Not JSON, continue
+                    # Also check regular messages that might contain JSON (fallback)
+                    elif hasattr(message, "content") and message.content:
                         content = str(message.content)
-                        
-                        # Skip tool messages (they're JSON)
+                        # Skip if it's an AIMessage (those are responses, not tool results)
+                        if isinstance(message, AIMessage):
+                            continue
+                        # Try to parse as JSON (tool results)
                         try:
                             result = json.loads(content)
                             if isinstance(result, dict):
                                 # Store calculation results
                                 if "dti" in result and "is_affordable" not in result:
                                     self.memory_manager.store_calculation("dti", result)
+                                    tool_results.append(("dti", result))
                                 elif "is_affordable" in result:
                                     self.memory_manager.store_calculation("affordability", result)
+                                    tool_results.append(("affordability", result))
                                 elif "readiness_score" in result:
                                     self.memory_manager.store_calculation("readiness", result)
-                                elif "action_plan" in result or "priority_actions" in result:
+                                    tool_results.append(("readiness", result))
+                                elif "action_plan" in result or "priority_actions" in result or "goal" in result:
                                     self.memory_manager.store_calculation("action_plan", result)
-                                # Skip tool results, continue to find text response
-                                continue
+                                    tool_results.append(("action_plan", result))
+                        except json.JSONDecodeError:
+                            pass  # Not JSON, continue
+                
+                # Second pass: Find the final text response (last non-tool message)
+                for message in reversed(response["messages"]):
+                    if hasattr(message, "content") and message.content:
+                        content = str(message.content)
+                        # Skip JSON (tool results)
+                        try:
+                            json.loads(content)
+                            continue  # This is a tool result, skip it
                         except json.JSONDecodeError:
                             # This is a text response - stream it
                             full_response = content
@@ -155,11 +197,15 @@ Conversation Style:
                             for i, word in enumerate(words):
                                 yield word + (" " if i < len(words) - 1 else "")
                             break  # Found the response, stop looking
+                
+                # Store tool results for later retrieval
+                self._last_tool_results = tool_results
                             
         except Exception as e:
             error_msg = f"Error processing message: {str(e)}"
             yield error_msg
             full_response = error_msg
+            self._last_tool_results = []
         
         # Save to memory
         self.memory_manager.add_message("user", user_message)

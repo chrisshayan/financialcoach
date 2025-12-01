@@ -1,5 +1,7 @@
 'use client';
 
+import { MilestoneTimeline } from './MilestoneTimeline';
+
 interface ActionPlanProps {
   plan: {
     goal?: string;
@@ -30,7 +32,10 @@ interface ActionPlanProps {
 }
 
 export function ActionPlan({ plan }: ActionPlanProps) {
-  if (!plan || !plan.priority_actions) return null;
+  // Check if plan has any data
+  if (!plan || (!plan.priority_actions && !plan.milestones && !plan.goal)) {
+    return null;
+  }
   
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -108,24 +113,8 @@ export function ActionPlan({ plan }: ActionPlanProps) {
       
       {plan.milestones && plan.milestones.length > 0 && (
         <div>
-          <h4 className="font-semibold text-foreground mb-3">Milestones</h4>
-          <div className="space-y-2">
-            {plan.milestones.map((milestone, index) => (
-              <div key={index} className="flex items-center gap-3 p-2">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                  milestone.status === 'completed' ? 'bg-green-500' :
-                  milestone.status === 'in_progress' ? 'bg-blue-500' :
-                  'bg-muted border border-border'
-                }`}>
-                  {milestone.status === 'completed' ? '✓' : index + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-foreground">{milestone.milestone}</div>
-                  <div className="text-sm text-muted-foreground">{milestone.target}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <h4 className="font-semibold text-foreground mb-4">Milestones Timeline</h4>
+          <MilestoneTimeline milestones={plan.milestones} />
         </div>
       )}
     </div>

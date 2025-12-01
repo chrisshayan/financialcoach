@@ -72,18 +72,23 @@ async def chat_endpoint(request: ChatRequest):
                 # Stream text chunks as SSE
                 yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
             
-            # After response, check if calculation was made
-            # Send the most recent calculation result
+            # After streaming is complete, send all tool results
+            if hasattr(agent, '_last_tool_results') and agent._last_tool_results:
+                for tool_type, tool_result in agent._last_tool_results:
+                    yield f"data: {json.dumps({'type': 'calculation', 'result': tool_result})}\n\n"
+            
+            # Also check memory for any missed calculations (fallback)
             if agent.memory_manager.last_calculations:
-                # Prioritize: affordability > dti > readiness
-                last_calc = (
-                    agent.memory_manager.last_calculations.get('affordability') or
-                    agent.memory_manager.last_calculations.get('dti') or
-                    agent.memory_manager.last_calculations.get('readiness') or
-                    agent.memory_manager.last_calculations.get('last')
-                )
-                if last_calc:
-                    yield f"data: {json.dumps({'type': 'calculation', 'result': last_calc})}\n\n"
+                # Send action_plan if it exists
+                if 'action_plan' in agent.memory_manager.last_calculations:
+                    action_plan = agent.memory_manager.last_calculations.get('action_plan')
+                    if action_plan:
+                        # Check if we already sent it
+                        already_sent = hasattr(agent, '_last_tool_results') and any(
+                            t[0] == 'action_plan' for t in agent._last_tool_results
+                        )
+                        if not already_sent:
+                            yield f"data: {json.dumps({'type': 'calculation', 'result': action_plan})}\n\n"
             
             # Generate follow-up suggestions
             suggestions = _generate_follow_ups(full_response, agent.memory_manager.last_calculations)
