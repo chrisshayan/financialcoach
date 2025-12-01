@@ -63,13 +63,22 @@ export function useConversation() {
     }));
   }, []);
   
+  const clearConversation = useCallback(() => {
+    setMessages([]);
+    setConversationState({
+      messages: [],
+      suggestedFollowUps: []
+    });
+  }, []);
+  
   return {
     messages,
     conversationState,
     addMessage,
     updateLastMessage,
     addCalculationResult,
-    addFollowUpSuggestions
+    addFollowUpSuggestions,
+    clearConversation
   };
 }
 

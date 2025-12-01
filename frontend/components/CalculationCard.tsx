@@ -4,6 +4,7 @@ import { CalculationResult } from '@/types/chat';
 import { DTIGauge } from './DTIGauge';
 import { ReadinessScoreChart } from './ReadinessScoreChart';
 import { SavingsProgress } from './SavingsProgress';
+import { TransactionAnalysis } from './TransactionAnalysis';
 
 interface CalculationCardProps {
   result: CalculationResult;
@@ -16,16 +17,20 @@ export function CalculationCard({ result }: CalculationCardProps) {
     const isGood = dti <= 43;
     
     return (
-      <div className={`mt-3 p-5 rounded-lg border ${
+      <div className={`mt-3 p-6 rounded-xl border backdrop-blur-sm transition-all duration-300 hover:shadow-lg ${
         isGood 
-          ? 'bg-green-950/30 border-green-800/50' 
-          : 'bg-red-950/30 border-red-800/50'
+          ? 'bg-gradient-to-br from-green-950/40 via-green-950/20 to-transparent border-green-800/50 shadow-green-900/20' 
+          : 'bg-gradient-to-br from-red-950/40 via-red-950/20 to-transparent border-red-800/50 shadow-red-900/20'
       }`}>
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-          <span className={`text-2xl ${isGood ? 'text-green-400' : 'text-red-400'}`}>
-            {isGood ? '✓' : '⚠'}
-          </span>
-          Debt-to-Income Ratio
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${
+            isGood ? 'bg-green-500/20' : 'bg-red-500/20'
+          }`}>
+            <span className={`text-2xl ${isGood ? 'text-green-400' : 'text-red-400'}`}>
+              {isGood ? '✓' : '⚠'}
+            </span>
+          </div>
+          <span className="text-lg">Debt-to-Income Ratio</span>
         </h3>
         
         {/* DTI Gauge Visualization */}
@@ -33,13 +38,15 @@ export function CalculationCard({ result }: CalculationCardProps) {
         
         <div className="mt-4 space-y-2">
           {!isGood && (
-            <div className="text-sm text-red-400 p-2 bg-red-950/20 rounded">
-              ⚠️ Exceeds recommended 43% limit
+            <div className="text-sm text-red-400 p-3 bg-red-950/30 border border-red-800/30 rounded-lg backdrop-blur-sm flex items-center gap-2 animate-pulse">
+              <span className="text-lg">⚠️</span>
+              <span>Exceeds recommended 43% limit</span>
             </div>
           )}
           {isGood && (
-            <div className="text-sm text-green-400 p-2 bg-green-950/20 rounded">
-              ✓ Within acceptable limits for most lenders
+            <div className="text-sm text-green-400 p-3 bg-green-950/30 border border-green-800/30 rounded-lg backdrop-blur-sm flex items-center gap-2">
+              <span className="text-lg">✓</span>
+              <span>Within acceptable limits for most lenders</span>
             </div>
           )}
         </div>
@@ -106,6 +113,11 @@ export function CalculationCard({ result }: CalculationCardProps) {
     );
   }
   
+  // Transaction analysis card
+  if (result.spending_by_category || result.overspending_alerts || result.peer_comparisons) {
+    return <TransactionAnalysis analysis={result} />;
+  }
+  
   // Action plan card
   if (result.action_plan || result.goal || result.priority_actions) {
     // Action plan is handled by ActionPlan component
@@ -124,8 +136,13 @@ export function CalculationCard({ result }: CalculationCardProps) {
     };
     
     return (
-      <div className="mt-3 p-5 bg-card border border-border rounded-lg">
-        <h3 className="font-semibold text-foreground mb-4">Readiness Score</h3>
+      <div className="mt-3 p-6 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:shadow-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-primary/20">
+            <span className="text-2xl">🎯</span>
+          </div>
+          <h3 className="font-semibold text-foreground text-lg">Readiness Score</h3>
+        </div>
         
         {/* Pie Chart Visualization - only show if we have breakdown data */}
         {breakdown && Object.keys(breakdown).length > 0 && 
@@ -133,23 +150,25 @@ export function CalculationCard({ result }: CalculationCardProps) {
           <ReadinessScoreChart breakdown={breakdown} totalScore={score} />
         )}
         
-        {/* Overall Score Bar */}
-        <div className="mt-4 space-y-2">
+        {/* Overall Score Bar with enhanced styling */}
+        <div className="mt-6 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Overall Score:</span>
-            <div className={`text-2xl font-bold ${getScoreColor(score)}`}>
+            <span className="text-muted-foreground font-medium">Overall Score:</span>
+            <div className={`text-3xl font-bold ${getScoreColor(score)} drop-shadow-lg`}>
               {score}/100
             </div>
           </div>
-          <div className="w-full bg-muted rounded-full h-3">
+          <div className="relative w-full bg-muted/50 rounded-full h-4 overflow-hidden border border-border/50">
             <div
-              className={`h-3 rounded-full transition-all ${
-                score >= 80 ? 'bg-green-400' :
-                score >= 65 ? 'bg-blue-400' :
-                score >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+              className={`h-full rounded-full transition-all duration-1000 ease-out relative ${
+                score >= 80 ? 'bg-gradient-to-r from-green-400 to-green-500' :
+                score >= 65 ? 'bg-gradient-to-r from-blue-400 to-blue-500' :
+                score >= 50 ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' : 'bg-gradient-to-r from-red-400 to-red-500'
               }`}
               style={{ width: `${score}%` }}
-            />
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            </div>
           </div>
         </div>
       </div>

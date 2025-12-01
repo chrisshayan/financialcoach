@@ -14,10 +14,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
-        className={`max-w-[85%] rounded-lg px-4 py-3 ${
+        className={`max-w-[85%] rounded-xl px-4 py-3 transition-all duration-200 ${
           isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-card border border-border text-card-foreground shadow-sm'
+            ? 'bg-gradient-to-r from-primary to-blue-600 text-primary-foreground shadow-lg shadow-primary/20'
+            : 'bg-gradient-to-br from-card via-card/95 to-card/90 border border-border text-card-foreground shadow-md backdrop-blur-sm'
         }`}
       >
         {isUser ? (

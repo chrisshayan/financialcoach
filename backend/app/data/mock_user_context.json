@@ -1,5 +1,7 @@
 {
   "user_001": {
+    "persona": "First-Time Home Buyer",
+    "name": "Alex",
     "income": {
       "monthly_gross": 7500,
       "monthly_net": 5625,
@@ -61,6 +63,124 @@
       {"date": "2023-11-08", "amount": -350, "category": "student_loan", "description": "Student Loan Payment"},
       {"date": "2023-11-05", "amount": -150, "category": "credit_card", "description": "Credit Card Payment"},
       {"date": "2023-11-03", "amount": 7500, "category": "income", "description": "Monthly Salary"}
+    ]
+  },
+  "user_002": {
+    "persona": "First-Time Home Buyer",
+    "name": "Jordan",
+    "income": {
+      "monthly_gross": 10000,
+      "monthly_net": 7500,
+      "annual_gross": 120000,
+      "employment_status": "full_time",
+      "employment_length_months": 48
+    },
+    "savings": {
+      "checking": 15000,
+      "savings": 35000,
+      "total": 50000,
+      "monthly_savings_rate": 2000
+    },
+    "debts": [
+      {
+        "type": "student_loan",
+        "balance": 15000,
+        "monthly_payment": 250,
+        "interest_rate": 4.5
+      }
+    ],
+    "credit": {
+      "score": 780,
+      "last_updated": "2024-01-15"
+    },
+    "transactions": [
+      {"date": "2024-01-15", "amount": -1800, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2024-01-10", "amount": -250, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2024-01-03", "amount": 10000, "category": "income", "description": "Monthly Salary"},
+      {"date": "2024-01-02", "amount": -450, "category": "dining", "description": "Fine Dining"},
+      {"date": "2024-01-01", "amount": -320, "category": "shopping", "description": "New Year Shopping"},
+      {"date": "2023-12-28", "amount": -280, "category": "dining", "description": "Restaurant"},
+      {"date": "2023-12-25", "amount": -500, "category": "shopping", "description": "Holiday Gifts"},
+      {"date": "2023-12-22", "amount": -150, "category": "entertainment", "description": "Concert Tickets"},
+      {"date": "2023-12-20", "amount": -120, "category": "utilities", "description": "Electric Bill"},
+      {"date": "2023-12-18", "amount": -90, "category": "utilities", "description": "Internet Bill"},
+      {"date": "2023-12-15", "amount": -1800, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2023-12-10", "amount": -250, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2023-12-08", "amount": -380, "category": "dining", "description": "Restaurant"},
+      {"date": "2023-12-05", "amount": -200, "category": "groceries", "description": "Grocery Store"},
+      {"date": "2023-12-03", "amount": 10000, "category": "income", "description": "Monthly Salary"},
+      {"date": "2023-11-30", "amount": -420, "category": "dining", "description": "Restaurant"},
+      {"date": "2023-11-28", "amount": -150, "category": "entertainment", "description": "Movie Theater"},
+      {"date": "2023-11-25", "amount": -180, "category": "groceries", "description": "Grocery Store"},
+      {"date": "2023-11-22", "amount": -250, "category": "shopping", "description": "Clothing"},
+      {"date": "2023-11-20", "amount": -120, "category": "utilities", "description": "Electric Bill"},
+      {"date": "2023-11-18", "amount": -90, "category": "utilities", "description": "Internet Bill"},
+      {"date": "2023-11-15", "amount": -1800, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2023-11-10", "amount": -250, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2023-11-03", "amount": 10000, "category": "income", "description": "Monthly Salary"}
+    ]
+  },
+  "user_003": {
+    "persona": "First-Time Home Buyer",
+    "name": "Sam",
+    "income": {
+      "monthly_gross": 5000,
+      "monthly_net": 3750,
+      "annual_gross": 60000,
+      "employment_status": "full_time",
+      "employment_length_months": 18
+    },
+    "savings": {
+      "checking": 3000,
+      "savings": 5000,
+      "total": 8000,
+      "monthly_savings_rate": 400
+    },
+    "debts": [
+      {
+        "type": "student_loan",
+        "balance": 35000,
+        "monthly_payment": 500,
+        "interest_rate": 6.0
+      },
+      {
+        "type": "credit_card",
+        "balance": 8000,
+        "monthly_payment": 300,
+        "interest_rate": 22.0
+      }
+    ],
+    "credit": {
+      "score": 650,
+      "last_updated": "2024-01-15"
+    },
+    "transactions": [
+      {"date": "2024-01-15", "amount": -900, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2024-01-10", "amount": -500, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2024-01-08", "amount": -300, "category": "credit_card", "description": "Credit Card Payment"},
+      {"date": "2024-01-05", "amount": -180, "category": "dining", "description": "Restaurant"},
+      {"date": "2024-01-03", "amount": 5000, "category": "income", "description": "Monthly Salary"},
+      {"date": "2024-01-01", "amount": -250, "category": "shopping", "description": "New Year Shopping"},
+      {"date": "2023-12-28", "amount": -120, "category": "dining", "description": "Fast Food"},
+      {"date": "2023-12-25", "amount": -200, "category": "shopping", "description": "Holiday Gifts"},
+      {"date": "2023-12-22", "amount": -80, "category": "entertainment", "description": "Streaming Services"},
+      {"date": "2023-12-20", "amount": -90, "category": "utilities", "description": "Electric Bill"},
+      {"date": "2023-12-18", "amount": -60, "category": "utilities", "description": "Internet Bill"},
+      {"date": "2023-12-15", "amount": -900, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2023-12-10", "amount": -500, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2023-12-08", "amount": -300, "category": "credit_card", "description": "Credit Card Payment"},
+      {"date": "2023-12-05", "amount": -150, "category": "dining", "description": "Restaurant"},
+      {"date": "2023-12-03", "amount": 5000, "category": "income", "description": "Monthly Salary"},
+      {"date": "2023-11-30", "amount": -140, "category": "dining", "description": "Fast Food"},
+      {"date": "2023-11-28", "amount": -100, "category": "groceries", "description": "Grocery Store"},
+      {"date": "2023-11-25", "amount": -180, "category": "shopping", "description": "Clothing"},
+      {"date": "2023-11-22", "amount": -120, "category": "dining", "description": "Restaurant"},
+      {"date": "2023-11-20", "amount": -90, "category": "utilities", "description": "Electric Bill"},
+      {"date": "2023-11-18", "amount": -60, "category": "utilities", "description": "Internet Bill"},
+      {"date": "2023-11-15", "amount": -900, "category": "rent", "description": "Monthly Rent"},
+      {"date": "2023-11-10", "amount": -500, "category": "student_loan", "description": "Student Loan Payment"},
+      {"date": "2023-11-08", "amount": -300, "category": "credit_card", "description": "Credit Card Payment"},
+      {"date": "2023-11-03", "amount": 5000, "category": "income", "description": "Monthly Salary"}
     ]
   }
 }

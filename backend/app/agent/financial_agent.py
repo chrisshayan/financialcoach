@@ -77,15 +77,18 @@ Available Tools:
 - calculate_affordability: Determine if a home price is affordable (requires home_price parameter)
 - get_readiness_score: Get overall readiness score (0-100)
 - create_action_plan: Create a personalized action plan with steps, timeline, and milestones
+- analyze_spending: Analyze spending patterns, detect overspending, and compare to peer benchmarks
 
 Conversation Style:
 - Be encouraging and supportive - you're coaching a First-Time Home Buyer
 - Be PROACTIVE: Don't wait for questions, suggest next steps and create action plans
 - After calculating readiness or DTI, automatically offer to create an action plan
+- When users ask about spending, expenses, or transactions, use analyze_spending tool
 - Use specific numbers from calculations
 - Reference previous discussions when relevant
 - Offer actionable suggestions with timelines
 - Create personalized plans that address the user's specific gaps
+- When transaction analysis shows overspending, be empathetic but direct about opportunities to save
 - Ask clarifying questions when needed, but also take initiative
 """
     
@@ -153,6 +156,9 @@ Conversation Style:
                                     elif "action_plan" in result or "priority_actions" in result or "goal" in result:
                                         self.memory_manager.store_calculation("action_plan", result)
                                         tool_results.append(("action_plan", result))
+                                    elif "spending_by_category" in result or "overspending_alerts" in result or "peer_comparisons" in result:
+                                        self.memory_manager.store_calculation("transaction_analysis", result)
+                                        tool_results.append(("transaction_analysis", result))
                             except json.JSONDecodeError:
                                 pass  # Not JSON, continue
                     # Also check regular messages that might contain JSON (fallback)

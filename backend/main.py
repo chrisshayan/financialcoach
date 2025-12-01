@@ -78,8 +78,9 @@ async def chat_endpoint(request: ChatRequest):
                     yield f"data: {json.dumps({'type': 'calculation', 'result': tool_result})}\n\n"
             
             # Also check memory for any missed calculations (fallback)
+            # This ensures action plans are always sent even if not in tool_results
             if agent.memory_manager.last_calculations:
-                # Send action_plan if it exists
+                # Send action_plan if it exists and wasn't already sent
                 if 'action_plan' in agent.memory_manager.last_calculations:
                     action_plan = agent.memory_manager.last_calculations.get('action_plan')
                     if action_plan:
@@ -89,6 +90,17 @@ async def chat_endpoint(request: ChatRequest):
                         )
                         if not already_sent:
                             yield f"data: {json.dumps({'type': 'calculation', 'result': action_plan})}\n\n"
+                
+                # Also send other calculations that might have been missed
+                for calc_type in ['readiness', 'dti', 'affordability', 'transaction_analysis']:
+                    if calc_type in agent.memory_manager.last_calculations:
+                        calc_result = agent.memory_manager.last_calculations.get(calc_type)
+                        if calc_result:
+                            already_sent = hasattr(agent, '_last_tool_results') and any(
+                                t[0] == calc_type for t in agent._last_tool_results
+                            )
+                            if not already_sent:
+                                yield f"data: {json.dumps({'type': 'calculation', 'result': calc_result})}\n\n"
             
             # Generate follow-up suggestions
             suggestions = _generate_follow_ups(full_response, agent.memory_manager.last_calculations)
@@ -116,33 +128,75 @@ def _generate_follow_ups(response: str, calculations: dict) -> List[str]:
     """Generate contextual follow-up suggestions based on response."""
     suggestions = []
     
-    last_calc = calculations.get('last', {})
+    # Check all calculations, not just last
+    has_action_plan = False
+    action_plan = None
     
-    if last_calc:
-        # Check for DTI-related calculations
-        if 'dti' in last_calc:
-            dti = last_calc.get('dti', 0)
-            if dti > 43:
-                suggestions.append("How can I reduce my DTI?")
-                suggestions.append("What debts should I pay off first?")
+    for calc_type, calc_data in calculations.items():
+        if calc_type == 'action_plan' or (isinstance(calc_data, dict) and ('goal' in calc_data or 'priority_actions' in calc_data)):
+            has_action_plan = True
+            action_plan = calc_data if isinstance(calc_data, dict) else None
+            break
+    
+    # If action plan exists, suggest questions about the plan
+    if has_action_plan and action_plan:
+        priority_actions = action_plan.get('priority_actions', [])
+        if priority_actions:
+            # Get the first priority action
+            first_action = priority_actions[0]
+            action_name = first_action.get('action', '')
+            
+            # Generate contextual suggestions based on the action
+            if 'savings' in action_name.lower() or 'down payment' in action_name.lower():
+                suggestions.append("How can I increase my monthly savings?")
+                suggestions.append("What expenses should I cut to save more?")
+            elif 'dti' in action_name.lower() or 'debt' in action_name.lower():
+                suggestions.append("Which debt should I pay off first?")
+                suggestions.append("How much should I pay monthly to reduce my DTI?")
+            elif 'credit' in action_name.lower():
+                suggestions.append("How can I improve my credit score faster?")
+                suggestions.append("What's affecting my credit score?")
+            else:
+                suggestions.append("How do I start working on my first priority?")
+                suggestions.append("What's the timeline for my action plan?")
         
-        # Check for affordability calculations
-        if 'is_affordable' in last_calc:
-            if not last_calc.get('is_affordable', True):
-                suggestions.append("What if I save for a larger down payment?")
-                suggestions.append("How much more income would I need?")
+        # Add milestone-related questions
+        milestones = action_plan.get('milestones', [])
+        if milestones:
+            next_milestone = next((m for m in milestones if m.get('status') == 'pending'), None)
+            if next_milestone:
+                suggestions.append(f"How do I achieve {next_milestone.get('target', 'my next milestone')}?")
+    
+    # If no action plan, suggest creating one
+    if not has_action_plan:
+        last_calc = calculations.get('last', {}) or calculations.get('readiness') or calculations.get('dti') or calculations.get('affordability')
         
-        # Check for readiness score
-        if 'readiness_score' in last_calc:
-            score = last_calc.get('readiness_score', 100)
-            if score < 70:
+        if last_calc:
+            # Check for DTI-related calculations
+            if 'dti' in last_calc:
+                dti = last_calc.get('dti', 0)
+                if dti > 43:
+                    suggestions.append("How can I reduce my DTI?")
+                    suggestions.append("What debts should I pay off first?")
+            
+            # Check for affordability calculations
+            if 'is_affordable' in last_calc:
+                if not last_calc.get('is_affordable', True):
+                    suggestions.append("What if I save for a larger down payment?")
+                    suggestions.append("How much more income would I need?")
+            
+            # Check for readiness score
+            if 'readiness_score' in last_calc:
+                score = last_calc.get('readiness_score', 100)
+                if score < 70:
+                    suggestions.append("Create my personalized action plan")
+                    suggestions.append("What's my biggest barrier to homeownership?")
+                else:
+                    suggestions.append("What should I focus on to improve further?")
+            
+            # Always suggest creating a plan if user hasn't asked for one yet
+            if 'action_plan' not in str(last_calc) and 'goal' not in str(last_calc):
                 suggestions.append("Create my personalized action plan")
-                suggestions.append("What's my biggest barrier to homeownership?")
-                suggestions.append("What should I focus on first?")
-        
-        # Always suggest creating a plan if user hasn't asked for one yet
-        if 'action_plan' not in last_calc and 'goal' not in last_calc:
-            suggestions.append("Create my personalized action plan")
     
     return suggestions[:3]  # Limit to 3 suggestions
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from app.calculator.dti_calculator import DTICalculator
 from app.calculator.affordability import AffordabilityCalculator
 from app.calculator.readiness_score import ReadinessScoreCalculator
+from app.calculator.transaction_analyzer import TransactionAnalyzer
 
 
 def _load_user_context(user_id: str) -> Dict[str, Any]:
@@ -31,6 +32,7 @@ def get_financial_tools(user_id: str):
     dti_calc = DTICalculator()
     affordability_calc = AffordabilityCalculator()
     readiness_calc = ReadinessScoreCalculator()
+    transaction_analyzer = TransactionAnalyzer()
     
     @tool
     def calculate_dti() -> str:
@@ -168,4 +170,24 @@ def get_financial_tools(user_id: str):
         
         return json.dumps(plan, indent=2)
     
-    return [calculate_dti, calculate_affordability, get_readiness_score, create_action_plan]
+    @tool
+    def analyze_spending(months: int = 3) -> str:
+        """Analyze user's spending patterns, detect overspending, and compare to peer benchmarks.
+        
+        Args:
+            months: Number of months to analyze (default: 3)
+        
+        Use this when user asks about:
+        - Spending habits, where they're overspending
+        - Transaction analysis, spending patterns
+        - Peer comparison, how they compare to others
+        - Budget analysis, expense breakdown
+        - "Am I spending too much on X?"
+        
+        Returns a JSON string with spending analysis, overspending alerts, and peer benchmarks.
+        """
+        user_context = _load_user_context(user_id)
+        result = transaction_analyzer.analyze(user_context, months=months)
+        return json.dumps(result, indent=2)
+    
+    return [calculate_dti, calculate_affordability, get_readiness_score, create_action_plan, analyze_spending]
