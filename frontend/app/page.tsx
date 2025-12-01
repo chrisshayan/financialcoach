@@ -25,6 +25,11 @@ import { SuccessStories } from '@/components/SuccessStories';
 import { RateDropAlerts } from '@/components/RateDropAlerts';
 import { ContentLibrary } from '@/components/ContentLibrary';
 import { Leaderboards } from '@/components/Leaderboards';
+import { AITransparency } from '@/components/AITransparency';
+import { GoalManagement, Goal } from '@/components/GoalManagement';
+import { GoalWizard } from '@/components/GoalWizard';
+import { GoalRecommendation } from '@/components/GoalRecommendation';
+import { PlaidIntegration } from '@/components/PlaidIntegration';
 import { useConversation } from '@/hooks/useConversation';
 import { streamChatMessage } from '@/lib/chat-client';
 
@@ -49,9 +54,15 @@ export default function Home() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [celebratedMilestone, setCelebratedMilestone] = useState<any>(null);
+  const [celebratedMilestoneIds, setCelebratedMilestoneIds] = useState<string[]>([]);
   const [dailyStreak, setDailyStreak] = useState(5);
   const [weeklyStreak, setWeeklyStreak] = useState(2);
   const [monthlyStreak, setMonthlyStreak] = useState(1);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [showGoalWizard, setShowGoalWizard] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);
+  const [showAITransparency, setShowAITransparency] = useState(false);
+  const [currentExplanation, setCurrentExplanation] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const scrollToBottom = () => {
@@ -105,7 +116,30 @@ export default function Home() {
       }
     };
     
-    setUserContext(personaData[selectedPersona] || personaData['user_001']);
+    const persona = personaData[selectedPersona] || personaData['user_001'];
+    setUserContext(persona);
+    
+    // Initialize default homeownership goal if no goals exist
+    setGoals(prev => {
+      if (prev.length === 0) {
+        const defaultGoal: Goal = {
+          id: 'goal_homeownership',
+          type: 'homeownership',
+          name: 'Homeownership',
+          targetAmount: 30000,
+          currentAmount: persona?.savings?.total || 0,
+          targetDate: new Date(Date.now() + 18 * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          priority: 'high',
+          status: 'active',
+          monthlyContribution: persona?.savings?.monthly_savings_rate || 0,
+          progress: ((persona?.savings?.total || 0) / 30000) * 100,
+          icon: '🏠',
+          color: 'blue'
+        };
+        return [defaultGoal];
+      }
+      return prev;
+    });
   }, [selectedPersona]);
 
   // Check for milestone achievements
@@ -114,8 +148,11 @@ export default function Home() {
     const dti = conversationState.calculations?.dti;
     const savings = userContext?.savings?.total;
 
+    // Only check for new milestones if we're not currently showing one
+    if (celebratedMilestone) return;
+
     // Check for milestone achievements
-    if (readinessScore && readinessScore >= 75 && !celebratedMilestone) {
+    if (readinessScore && readinessScore >= 75 && !celebratedMilestoneIds.includes('readiness_75')) {
       setCelebratedMilestone({
         id: 'readiness_75',
         title: 'Mortgage Ready!',
@@ -123,6 +160,7 @@ export default function Home() {
         tier: 'gold',
         icon: '🏆'
       });
+      setCelebratedMilestoneIds(prev => [...prev, 'readiness_75']);
       setNotifications(prev => [...prev, {
         id: `milestone_${Date.now()}`,
         type: 'milestone',
@@ -133,9 +171,10 @@ export default function Home() {
         icon: '🎉',
         priority: 'high'
       }]);
+      return;
     }
 
-    if (dti && dti <= 36 && !celebratedMilestone) {
+    if (dti && dti <= 36 && !celebratedMilestoneIds.includes('dti_champion')) {
       setCelebratedMilestone({
         id: 'dti_champion',
         title: 'DTI Champion!',
@@ -143,9 +182,11 @@ export default function Home() {
         tier: 'gold',
         icon: '💪'
       });
+      setCelebratedMilestoneIds(prev => [...prev, 'dti_champion']);
+      return;
     }
 
-    if (savings && savings >= 30000 && !celebratedMilestone) {
+    if (savings && savings >= 30000 && !celebratedMilestoneIds.includes('savings_30k')) {
       setCelebratedMilestone({
         id: 'savings_30k',
         title: 'Down Payment Ready!',
@@ -153,6 +194,8 @@ export default function Home() {
         tier: 'platinum',
         icon: '💰'
       });
+      setCelebratedMilestoneIds(prev => [...prev, 'savings_30k']);
+      return;
     }
   }, [conversationState.calculations, userContext, celebratedMilestone]);
   
@@ -248,6 +291,41 @@ export default function Home() {
           />
           {userContext && <UserProfile userContext={userContext} />}
           
+          {/* Plaid Integration */}
+          <PlaidIntegration
+            onAccountsUpdate={(accounts) => {
+              // Update user context with connected accounts
+              setUserContext((prev: any) => ({
+                ...prev,
+                accountsConnected: accounts.length,
+                connectedAccounts: accounts
+              }));
+            }}
+          />
+          
+          {/* Goal Management */}
+          <GoalManagement
+            goals={goals}
+            onAddGoal={() => {
+              setEditingGoal(undefined);
+              setShowGoalWizard(true);
+            }}
+            onEditGoal={(goal) => {
+              setEditingGoal(goal);
+              setShowGoalWizard(true);
+            }}
+            onDeleteGoal={(id) => {
+              setGoals(prev => prev.filter(g => g.id !== id));
+            }}
+            onToggleStatus={(id) => {
+              setGoals(prev => prev.map(g =>
+                g.id === id
+                  ? { ...g, status: g.status === 'active' ? 'paused' : 'active' }
+                  : g
+              ));
+            }}
+          />
+          
           {/* Data Mesh */}
           <DataMesh userContext={userContext} />
           
@@ -336,6 +414,12 @@ export default function Home() {
                 onSelectExample={(example) => handleSend(example)}
                 onDismiss={() => setShowOnboarding(false)}
                 userContext={userContext}
+                userId={selectedPersona}
+                existingGoals={goals.map(g => ({
+                  type: g.type,
+                  name: g.name,
+                  status: g.status
+                }))}
               />
             </div>
           )}
@@ -375,6 +459,50 @@ export default function Home() {
                 {msg.calculationResult && (
                   <>
                     <CalculationCard result={msg.calculationResult} />
+                    {/* Show Goal Recommendation if present */}
+                    {msg.calculationResult.goal_recommendation && (
+                      <GoalRecommendation
+                        recommendation={msg.calculationResult.goal_recommendation}
+                        onCreate={(goalData) => {
+                          const newGoal: Goal = {
+                            ...goalData,
+                            id: `goal_${Date.now()}`,
+                            progress: (goalData.currentAmount / goalData.targetAmount) * 100,
+                            status: 'active',
+                            icon: goalData.type === 'homeownership' ? '🏠' :
+                                  goalData.type === 'retirement' ? '👴' :
+                                  goalData.type === 'education' ? '🎓' :
+                                  goalData.type === 'debt_payoff' ? '💳' :
+                                  goalData.type === 'emergency_fund' ? '🆘' : '🛒',
+                            color: goalData.type === 'homeownership' ? 'blue' :
+                                   goalData.type === 'retirement' ? 'purple' :
+                                   goalData.type === 'education' ? 'green' :
+                                   goalData.type === 'debt_payoff' ? 'red' :
+                                   goalData.type === 'emergency_fund' ? 'yellow' : 'orange'
+                          };
+                          setGoals(prev => {
+                            // Check if goal already exists (avoid duplicates)
+                            const exists = prev.some(g => g.type === newGoal.type && g.status === 'active');
+                            if (exists) {
+                              // Update existing goal instead
+                              return prev.map(g => 
+                                g.type === newGoal.type && g.status === 'active'
+                                  ? { ...g, ...newGoal, id: g.id } // Keep existing ID
+                                  : g
+                              );
+                            }
+                            return [...prev, newGoal];
+                          });
+                          // Open goal wizard to review/edit the goal
+                          setEditingGoal(newGoal);
+                          setShowGoalWizard(true);
+                        }}
+                        onDismiss={() => {
+                          // Remove goal recommendation from message
+                          // This would require updating the message, but for now we'll just hide it
+                        }}
+                      />
+                    )}
                     {/* Show ActionPlan if it's an action plan result */}
                     {(msg.calculationResult.goal || 
                       msg.calculationResult.priority_actions || 
@@ -483,6 +611,41 @@ export default function Home() {
           <MilestoneCelebration
             milestone={celebratedMilestone}
             onClose={() => setCelebratedMilestone(null)}
+          />
+        )}
+        
+        {/* Goal Wizard */}
+        {showGoalWizard && (
+          <GoalWizard
+            onSave={(goalData) => {
+              if (editingGoal) {
+                // Update existing goal
+                setGoals(prev => prev.map(g =>
+                  g.id === editingGoal.id
+                    ? {
+                        ...g,
+                        ...goalData,
+                        progress: (goalData.currentAmount / goalData.targetAmount) * 100
+                      }
+                    : g
+                ));
+              } else {
+                // Add new goal
+                const newGoal: Goal = {
+                  ...goalData,
+                  id: `goal_${Date.now()}`,
+                  progress: (goalData.currentAmount / goalData.targetAmount) * 100
+                };
+                setGoals(prev => [...prev, newGoal]);
+              }
+              setShowGoalWizard(false);
+              setEditingGoal(undefined);
+            }}
+            onCancel={() => {
+              setShowGoalWizard(false);
+              setEditingGoal(undefined);
+            }}
+            existingGoal={editingGoal}
           />
         )}
         

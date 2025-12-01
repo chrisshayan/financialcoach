@@ -79,12 +79,15 @@ Available Tools:
 - create_action_plan: Create a personalized action plan with steps, timeline, and milestones
 - analyze_spending: Analyze spending patterns, detect overspending, and compare to peer benchmarks
 - plan_scenarios: Generate "what-if" scenarios to compare different financial strategies
+- recommend_goal: Recommend creating a financial goal (homeownership, retirement, education, debt_payoff, emergency_fund, major_purchase)
 
 Conversation Style:
 - Be encouraging and supportive - you're coaching a First-Time Home Buyer
 - Be PROACTIVE: Don't wait for questions, suggest next steps and create action plans
 - After calculating readiness or DTI, automatically offer to create an action plan
 - When users ask about spending, expenses, or transactions, use analyze_spending tool
+- When users ask about setting goals, saving for something, or planning for retirement/education/debt payoff, use recommend_goal tool
+- Proactively suggest creating goals when appropriate (e.g., if user has no emergency fund, suggest emergency_fund goal)
 - Use specific numbers from calculations
 - Reference previous discussions when relevant
 - Offer actionable suggestions with timelines
@@ -160,6 +163,9 @@ Conversation Style:
                                     elif "spending_by_category" in result or "overspending_alerts" in result or "peer_comparisons" in result:
                                         self.memory_manager.store_calculation("transaction_analysis", result)
                                         tool_results.append(("transaction_analysis", result))
+                                    elif "goal_recommendation" in result:
+                                        self.memory_manager.store_calculation("goal_recommendation", result)
+                                        tool_results.append(("goal_recommendation", result))
                             except json.JSONDecodeError:
                                 pass  # Not JSON, continue
                     # Also check regular messages that might contain JSON (fallback)
@@ -185,6 +191,9 @@ Conversation Style:
                                 elif "action_plan" in result or "priority_actions" in result or "goal" in result:
                                     self.memory_manager.store_calculation("action_plan", result)
                                     tool_results.append(("action_plan", result))
+                                elif "goal_recommendation" in result:
+                                    self.memory_manager.store_calculation("goal_recommendation", result)
+                                    tool_results.append(("goal_recommendation", result))
                         except json.JSONDecodeError:
                             pass  # Not JSON, continue
                 

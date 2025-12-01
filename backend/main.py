@@ -14,6 +14,7 @@ from typing import List, Optional
 import json
 
 from app.agent.financial_agent import FinancialAgent
+from app.services.question_generator import generate_personalized_questions
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,6 +45,33 @@ class ChatRequest(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "message": "Financial Coach API is running"}
+
+
+class PersonalizedQuestionsRequest(BaseModel):
+    user_id: str = "user_001"
+    existing_goals: Optional[List[dict]] = None
+
+
+@app.post("/api/personalized-questions")
+async def get_personalized_questions(request: PersonalizedQuestionsRequest):
+    """Generate personalized onboarding questions based on user's financial context."""
+    try:
+        questions = await generate_personalized_questions(
+            user_id=request.user_id,
+            existing_goals=request.existing_goals
+        )
+        return {"questions": questions}
+    except Exception as e:
+        # Fallback to default questions on error
+        return {
+            "questions": [
+                "What is my readiness score?",
+                "What's my debt-to-income ratio?",
+                "Can I afford a $400k home?",
+                "Analyze my spending patterns",
+                "Should I create an emergency fund goal?"
+            ]
+        }
 
 
 @app.post("/api/chat")
@@ -92,7 +120,7 @@ async def chat_endpoint(request: ChatRequest):
                             yield f"data: {json.dumps({'type': 'calculation', 'result': action_plan})}\n\n"
                 
                 # Also send other calculations that might have been missed
-                for calc_type in ['readiness', 'dti', 'affordability', 'transaction_analysis']:
+                for calc_type in ['readiness', 'dti', 'affordability', 'transaction_analysis', 'goal_recommendation']:
                     if calc_type in agent.memory_manager.last_calculations:
                         calc_result = agent.memory_manager.last_calculations.get(calc_type)
                         if calc_result:

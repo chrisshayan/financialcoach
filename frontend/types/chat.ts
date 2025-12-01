@@ -15,6 +15,19 @@ export interface CalculationResult {
   max_affordable_home_price?: number;
   readiness_score?: number;
   action_plan?: any;
+  goal_recommendation?: {
+    type: 'homeownership' | 'retirement' | 'education' | 'debt_payoff' | 'emergency_fund' | 'major_purchase';
+    name: string;
+    targetAmount: number;
+    targetDate?: string;
+    priority: 'high' | 'medium' | 'low';
+    reason: string;
+    monthlyContribution?: number;
+    supportingFactors?: string[];
+    riskFactors?: string[];
+    confidenceScore?: number;
+    dataSources?: string[];
+  };
   [key: string]: any;
 }
 

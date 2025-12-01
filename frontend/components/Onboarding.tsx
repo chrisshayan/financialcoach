@@ -1,5 +1,8 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { getPersonalizedQuestions } from '@/lib/api-client';
+
 interface OnboardingProps {
   onSelectExample: (example: string) => void;
   onDismiss: () => void;
@@ -10,90 +13,38 @@ interface OnboardingProps {
     credit?: { score?: number };
     debts?: Array<{ type: string; balance?: number; monthly_payment?: number }>;
   };
+  userId?: string;
+  existingGoals?: Array<{ type: string; name: string; status: string }>;
 }
 
-function generatePersonalizedQuestions(userContext?: OnboardingProps['userContext']): string[] {
-  if (!userContext) {
-    // Default questions if no context
-    return [
-      "What is my readiness score?",
-      "Analyze my spending patterns",
-      "Can I afford a $400k home?",
-      "Where am I overspending?",
-      "Create my personalized action plan",
-    ];
-  }
-
-  const monthlyIncome = userContext.income?.monthly_gross || 0;
-  const savings = userContext.savings?.total || 0;
-  const creditScore = userContext.credit?.score || 0;
-  const debts = userContext.debts || [];
-  const totalDebtPayments = debts.reduce((sum, debt) => sum + (debt.monthly_payment || 0), 0);
-  const hasHighDebt = totalDebtPayments > monthlyIncome * 0.2; // More than 20% of income
-  const hasLowCredit = creditScore < 700;
-  const hasLowSavings = savings < 30000;
-  const hasHighIncome = monthlyIncome >= 9000;
-  const hasMultipleDebts = debts.length > 1;
-
-  const questions: string[] = [];
-
-  // Always include readiness score as a baseline
-  questions.push("What is my readiness score?");
-
-  // Priority 1: Credit issues (most critical blocker)
-  if (hasLowCredit) {
-    questions.push("How can I improve my credit score?");
-  }
-
-  // Priority 2: Debt management (high impact)
-  if (hasHighDebt || hasMultipleDebts) {
-    questions.push("What's my debt-to-income ratio?");
-    if (hasMultipleDebts) {
-      questions.push("Which debt should I pay off first?");
-    }
-  }
-
-  // Priority 3: Spending analysis (always relevant)
-  questions.push("Analyze my spending patterns");
-
-  // Priority 4: Affordability - personalized by income level
-  if (hasHighIncome) {
-    questions.push("Can I afford a $500k home?");
-  } else if (monthlyIncome >= 6000) {
-    questions.push("Can I afford a $400k home?");
-  } else {
-    questions.push("Can I afford a $300k home?");
-  }
-
-  // Priority 5: Savings (if low savings)
-  if (hasLowSavings && !hasLowCredit && !hasHighDebt) {
-    questions.push("How much should I save for a down payment?");
-  }
-
-  // Priority 6: Action plan (always include if we have space)
-  if (questions.length < 5) {
-    questions.push("Create my personalized action plan");
-  }
-
-  // Ensure we have exactly 5 questions, prioritizing the most relevant
-  // If we have more than 5, keep the first 5 (most prioritized)
-  // If we have less than 5, add generic helpful questions
-  while (questions.length < 5) {
-    if (!questions.includes("Where am I overspending?")) {
-      questions.push("Where am I overspending?");
-    } else if (!questions.includes("Create my personalized action plan")) {
-      questions.push("Create my personalized action plan");
-    } else {
-      break; // Prevent infinite loop
-    }
-  }
-
-  return questions.slice(0, 5);
-}
-
-export function Onboarding({ onSelectExample, onDismiss, userContext }: OnboardingProps) {
-  const exampleQuestions = generatePersonalizedQuestions(userContext);
+export function Onboarding({ onSelectExample, onDismiss, userContext, userId = 'user_001', existingGoals }: OnboardingProps) {
+  const [exampleQuestions, setExampleQuestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const userName = userContext?.name || 'First-Time Home Buyer';
+
+  useEffect(() => {
+    async function loadQuestions() {
+      setIsLoading(true);
+      try {
+        const questions = await getPersonalizedQuestions(userId, existingGoals);
+        setExampleQuestions(questions);
+      } catch (error) {
+        console.error('Error loading personalized questions:', error);
+        // Fallback questions
+        setExampleQuestions([
+          "What is my readiness score?",
+          "What's my debt-to-income ratio?",
+          "Can I afford a $400k home?",
+          "Analyze my spending patterns",
+          "Should I create an emergency fund goal?"
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    loadQuestions();
+  }, [userId, existingGoals]);
   return (
     <div className="w-full p-8 bg-gradient-to-br from-card via-card/95 to-card/90 border border-border rounded-xl shadow-2xl backdrop-blur-sm">
       <div className="flex justify-between items-start mb-6">
@@ -143,20 +94,33 @@ export function Onboarding({ onSelectExample, onDismiss, userContext }: Onboardi
         {/* Right side - Example questions */}
         <div>
           <h3 className="font-semibold text-foreground text-lg mb-4">Try asking:</h3>
-          <div className="grid grid-cols-1 gap-3">
-            {exampleQuestions.map((question, index) => (
-              <button
-                key={index}
-                onClick={() => onSelectExample(question)}
-                className="text-left p-4 bg-gradient-to-br from-secondary via-secondary/95 to-secondary/90 hover:from-secondary/90 hover:via-secondary/85 hover:to-secondary/80 border border-border rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] hover:shadow-lg hover:border-primary/50"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-primary text-lg">💬</span>
-                  <span>{question}</span>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="p-4 bg-muted/30 border border-border rounded-xl animate-pulse"
+                >
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
                 </div>
-              </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3">
+              {exampleQuestions.map((question, index) => (
+                <button
+                  key={index}
+                  onClick={() => onSelectExample(question)}
+                  className="text-left p-4 bg-gradient-to-br from-secondary via-secondary/95 to-secondary/90 hover:from-secondary/90 hover:via-secondary/85 hover:to-secondary/80 border border-border rounded-xl transition-all duration-200 text-sm font-medium hover:scale-[1.02] hover:shadow-lg hover:border-primary/50"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-primary text-lg">💬</span>
+                    <span>{question}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

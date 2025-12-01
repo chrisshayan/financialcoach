@@ -41,8 +41,42 @@ export function MilestoneCelebration({ milestone, onClose }: MilestoneCelebratio
 
   if (!show) return null;
 
+  const handleShare = async () => {
+    const shareData = {
+      title: `I just achieved: ${milestone.title}!`,
+      text: milestone.description,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: Copy to clipboard
+        const textToShare = `${shareData.title}\n\n${shareData.text}`;
+        await navigator.clipboard.writeText(textToShare);
+        alert('Milestone details copied to clipboard!');
+      }
+    } catch (error) {
+      // User cancelled or error occurred
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+        // Fallback: Copy to clipboard
+        try {
+          const textToShare = `${shareData.title}\n\n${shareData.text}`;
+          await navigator.clipboard.writeText(textToShare);
+          alert('Milestone details copied to clipboard!');
+        } catch (clipboardError) {
+          console.error('Error copying to clipboard:', clipboardError);
+        }
+      }
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
       {/* Confetti Animation */}
       {confetti && (
         <div className="absolute inset-0 pointer-events-none">
@@ -61,7 +95,10 @@ export function MilestoneCelebration({ milestone, onClose }: MilestoneCelebratio
         </div>
       )}
 
-      <div className="relative bg-card border-2 border-border rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+      <div 
+        className="relative bg-background border-2 border-border rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors text-xl"
@@ -108,15 +145,7 @@ export function MilestoneCelebration({ milestone, onClose }: MilestoneCelebratio
               Continue Journey
             </button>
             <button
-              onClick={() => {
-                // Share functionality
-                if (navigator.share) {
-                  navigator.share({
-                    title: `I just achieved: ${milestone.title}!`,
-                    text: milestone.description,
-                  });
-                }
-              }}
+              onClick={handleShare}
               className="px-4 py-2 bg-muted/50 text-foreground rounded-lg font-medium hover:bg-muted/70 transition-colors"
             >
               Share

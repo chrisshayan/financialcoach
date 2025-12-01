@@ -190,4 +190,148 @@ def get_financial_tools(user_id: str):
         result = transaction_analyzer.analyze(user_context, months=months)
         return json.dumps(result, indent=2)
     
-    return [calculate_dti, calculate_affordability, get_readiness_score, create_action_plan, analyze_spending]
+    @tool
+    def recommend_goal(goal_type: str, target_amount: float = 0.0, reason: str = "", priority: str = "medium", months: int = 12) -> str:
+        """Recommends creating a financial goal based on the user's situation.
+        
+        Use this when the user asks about setting goals, saving for something, or planning for the future.
+        Args:
+            goal_type: Type of goal ('homeownership', 'retirement', 'education', 'debt_payoff', 'emergency_fund', 'major_purchase')
+            target_amount: Target amount for the goal (in dollars)
+            reason: Explanation of why this goal is recommended
+            priority: Priority level ('high', 'medium', 'low')
+            months: Number of months to achieve the goal (default 12)
+        Returns a JSON string with the goal recommendation details.
+        """
+        user_context = _load_user_context(user_id)
+        monthly_income = user_context.get("income", {}).get("monthly_gross", 0)
+        
+        # Calculate monthly contribution if not provided
+        monthly_contribution = (target_amount / months) if months > 0 and target_amount > 0 else 0
+        
+        # Auto-calculate target amount if not provided based on goal type
+        if target_amount == 0:
+            if goal_type == 'emergency_fund':
+                monthly_expenses = monthly_income * 0.6  # Estimate 60% of income as expenses
+                target_amount = monthly_expenses * 6  # 6 months of expenses
+            elif goal_type == 'homeownership':
+                target_amount = 30000  # Default down payment
+            elif goal_type == 'retirement':
+                target_amount = 50000  # Initial retirement savings goal
+            elif goal_type == 'education':
+                target_amount = 50000  # College savings goal
+            elif goal_type == 'debt_payoff':
+                total_debt = sum(d.get("balance", 0) for d in user_context.get("debts", []))
+                target_amount = total_debt
+            else:
+                target_amount = 10000  # Default for major purchase
+        
+        # Generate reason if not provided
+        if not reason:
+            if goal_type == 'emergency_fund':
+                reason = f"Building an emergency fund of ${target_amount:,.0f} will provide 6 months of financial security and protect you from unexpected expenses."
+            elif goal_type == 'homeownership':
+                reason = f"Saving ${target_amount:,.0f} for a down payment will help you achieve your homeownership goal and qualify for better mortgage rates."
+            elif goal_type == 'retirement':
+                reason = f"Starting retirement savings with a goal of ${target_amount:,.0f} will help secure your financial future."
+            elif goal_type == 'education':
+                reason = f"Saving ${target_amount:,.0f} for education expenses will help you or your family achieve educational goals."
+            elif goal_type == 'debt_payoff':
+                reason = f"Paying off ${target_amount:,.0f} in debt will improve your DTI and financial health."
+            else:
+                reason = f"Saving ${target_amount:,.0f} for this goal will help you achieve your financial objectives."
+        
+        from datetime import datetime, timedelta
+        target_date = (datetime.now() + timedelta(days=months * 30)).strftime("%Y-%m-%d")
+        
+        # Generate supporting factors based on goal type and user context
+        supporting_factors = []
+        risk_factors = []
+        confidence_score = 85  # Default confidence
+        
+        if goal_type == 'emergency_fund':
+            supporting_factors = [
+                f"Current savings: ${user_context.get('savings', {}).get('total', 0):,.0f}",
+                "Financial security best practice: 3-6 months expenses",
+                "Protects against unexpected job loss or medical expenses"
+            ]
+            if user_context.get('savings', {}).get('total', 0) < 5000:
+                risk_factors = ["Low current savings may require longer timeline"]
+                confidence_score = 90
+        elif goal_type == 'homeownership':
+            supporting_factors = [
+                f"Target down payment: ${target_amount:,.0f}",
+                "Improves mortgage qualification chances",
+                "Reduces monthly mortgage payments"
+            ]
+            if user_context.get('credit', {}).get('score', 0) < 700:
+                risk_factors = ["Credit score may need improvement for best rates"]
+                confidence_score = 80
+        elif goal_type == 'retirement':
+            supporting_factors = [
+                "Early retirement savings compound over time",
+                "Tax-advantaged accounts available",
+                "Long-term financial security"
+            ]
+            risk_factors = ["Market volatility may affect returns"]
+            confidence_score = 85
+        elif goal_type == 'education':
+            supporting_factors = [
+                "Education costs continue to rise",
+                "529 plans offer tax advantages",
+                "Early savings reduce future burden"
+            ]
+            risk_factors = ["Education costs may vary significantly"]
+            confidence_score = 80
+        elif goal_type == 'debt_payoff':
+            total_debt = sum(d.get("balance", 0) for d in user_context.get("debts", []))
+            dti_calc = DTICalculator()
+            dti_result = dti_calc.calculate(user_context)
+            dti = dti_result.get("dti", 0)
+            supporting_factors = [
+                f"Current total debt: ${total_debt:,.0f}",
+                f"Current DTI: {dti:.1f}%",
+                "Reduces interest payments over time"
+            ]
+            if dti > 40:
+                risk_factors = ["High DTI may require aggressive payoff strategy"]
+                confidence_score = 90
+            else:
+                confidence_score = 75
+        else:  # major_purchase
+            supporting_factors = [
+                f"Target amount: ${target_amount:,.0f}",
+                "Avoids financing costs",
+                "Provides financial flexibility"
+            ]
+            confidence_score = 80
+        
+        # Adjust confidence based on priority
+        if priority == 'high':
+            confidence_score = min(confidence_score + 5, 95)
+        elif priority == 'low':
+            confidence_score = max(confidence_score - 5, 70)
+        
+        result = {
+            "goal_recommendation": {
+                "type": goal_type,
+                "name": goal_type.replace('_', ' ').title(),
+                "targetAmount": round(target_amount, 2),
+                "targetDate": target_date,
+                "priority": priority,
+                "reason": reason,
+                "monthlyContribution": round(monthly_contribution, 2) if monthly_contribution > 0 else None,
+                "supportingFactors": supporting_factors,
+                "riskFactors": risk_factors if risk_factors else None,
+                "confidenceScore": confidence_score,
+                "dataSources": [
+                    "User financial profile",
+                    "Income and savings data",
+                    "Debt analysis",
+                    "Credit score information"
+                ]
+            }
+        }
+        return json.dumps(result, indent=2)
+    
+    return [calculate_dti, calculate_affordability, get_readiness_score, create_action_plan, analyze_spending, recommend_goal]
