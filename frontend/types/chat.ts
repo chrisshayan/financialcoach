@@ -21,6 +21,12 @@ export interface CalculationResult {
 export interface ConversationState {
   messages: Message[];
   lastCalculation?: CalculationResult;
+  calculations?: {
+    readiness_score?: number;
+    dti?: number;
+    affordability?: any;
+    spending?: any;
+  };
   suggestedFollowUps: string[];
 }
 

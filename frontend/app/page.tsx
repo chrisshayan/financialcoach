@@ -8,6 +8,11 @@ import { Onboarding } from '@/components/Onboarding';
 import { UserProfile } from '@/components/UserProfile';
 import { ActionPlan } from '@/components/ActionPlan';
 import { PersonaSelector } from '@/components/PersonaSelector';
+import { ProgressDashboard } from '@/components/ProgressDashboard';
+import { ProductRecommendations } from '@/components/ProductRecommendations';
+import { CLVCalculator } from '@/components/CLVCalculator';
+import { ScenarioPlanner } from '@/components/ScenarioPlanner';
+import { Marketplace } from '@/components/Marketplace';
 import { useConversation } from '@/hooks/useConversation';
 import { streamChatMessage } from '@/lib/chat-client';
 
@@ -27,6 +32,7 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [selectedPersona, setSelectedPersona] = useState('user_001');
   const [userContext, setUserContext] = useState<any>(null);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const scrollToBottom = () => {
@@ -164,15 +170,14 @@ export default function Home() {
           />
           {userContext && <UserProfile userContext={userContext} />}
           
-          {/* Quick Stats */}
-          {conversationState.lastCalculation?.dti && (
-            <div className="p-3 bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg">
-              <div className="text-xs text-muted-foreground mb-1">Last DTI</div>
-              <div className="text-2xl font-bold text-primary">
-                {conversationState.lastCalculation.dti}%
-              </div>
-            </div>
-          )}
+          {/* Progress Dashboard */}
+          <ProgressDashboard
+            userContext={{
+              ...userContext,
+              readinessScore: conversationState.calculations?.readiness_score,
+              dti: conversationState.calculations?.dti
+            }}
+          />
         </div>
       </div>
       
@@ -187,12 +192,24 @@ export default function Home() {
                 Ask about affordability, DTI, or readiness
               </p>
             </div>
+            <button
+              onClick={() => setShowMarketplace(!showMarketplace)}
+              className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-lg border border-primary/30 transition-colors"
+            >
+              {showMarketplace ? 'Hide' : 'Show'} Marketplace
+            </button>
           </div>
         </div>
         
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4">
-          {showOnboarding && messages.length === 0 && (
+          {showMarketplace && (
+            <div className="mb-6">
+              <Marketplace />
+            </div>
+          )}
+
+          {showOnboarding && messages.length === 0 && !showMarketplace && (
             <div className="mb-6">
               <Onboarding
                 onSelectExample={(example) => handleSend(example)}
@@ -202,7 +219,7 @@ export default function Home() {
             </div>
           )}
           
-          {messages.length === 0 && !showOnboarding && (
+          {messages.length === 0 && !showOnboarding && !showMarketplace && (
             <div className="max-w-3xl mx-auto text-center text-muted-foreground mt-12">
               <div className="text-6xl mb-4">🏠</div>
               <p className="text-lg mb-2">Ready to start your homeownership journey?</p>
@@ -224,6 +241,60 @@ export default function Home() {
                       <ActionPlan plan={
                         msg.calculationResult.action_plan || msg.calculationResult
                       } />
+                    )}
+                    {/* Show Product Recommendations after calculations */}
+                    {(msg.calculationResult.readiness_score !== undefined ||
+                      msg.calculationResult.dti !== undefined ||
+                      msg.calculationResult.is_affordable !== undefined ||
+                      msg.calculationResult.spending_by_category) && (
+                      <ProductRecommendations
+                        userContext={{
+                          ...userContext,
+                          readinessScore: msg.calculationResult.readiness_score,
+                          dti: msg.calculationResult.dti,
+                          savings: userContext?.savings,
+                          credit: userContext?.credit,
+                          income: userContext?.income
+                        }}
+                        trigger={
+                          msg.calculationResult.readiness_score !== undefined ? 'readiness' :
+                          msg.calculationResult.dti !== undefined ? 'dti' :
+                          msg.calculationResult.spending_by_category ? 'spending' :
+                          'affordability'
+                        }
+                      />
+                    )}
+                    {/* Show CLV Calculator after readiness score */}
+                    {msg.calculationResult.readiness_score !== undefined && (
+                      <CLVCalculator
+                        userContext={userContext}
+                        readinessScore={msg.calculationResult.readiness_score}
+                        dti={msg.calculationResult.dti}
+                      />
+                    )}
+                    {/* Show Scenario Planner after DTI or readiness */}
+                    {(msg.calculationResult.dti !== undefined || msg.calculationResult.readiness_score !== undefined) && (
+                      <ScenarioPlanner
+                        userContext={userContext}
+                        currentReadiness={msg.calculationResult.readiness_score || 0}
+                        currentDTI={msg.calculationResult.dti || 0                        }
+                      />
+                    )}
+                    {/* Show CLV Calculator after readiness score */}
+                    {msg.calculationResult.readiness_score !== undefined && (
+                      <CLVCalculator
+                        userContext={userContext}
+                        readinessScore={msg.calculationResult.readiness_score}
+                        dti={msg.calculationResult.dti}
+                      />
+                    )}
+                    {/* Show Scenario Planner after DTI or readiness */}
+                    {(msg.calculationResult.dti !== undefined || msg.calculationResult.readiness_score !== undefined) && (
+                      <ScenarioPlanner
+                        userContext={userContext}
+                        currentReadiness={msg.calculationResult.readiness_score || 0}
+                        currentDTI={msg.calculationResult.dti || 0}
+                      />
                     )}
                   </>
                 )}

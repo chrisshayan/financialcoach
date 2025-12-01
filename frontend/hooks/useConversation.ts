@@ -50,10 +50,22 @@ export function useConversation() {
       return updated;
     });
     
-    setConversationState(prev => ({
-      ...prev,
-      lastCalculation: result
-    }));
+    setConversationState(prev => {
+      // Store individual calculation values for easy access
+      const calculations = {
+        ...prev.calculations,
+        ...(result.readiness_score !== undefined && { readiness_score: result.readiness_score }),
+        ...(result.dti !== undefined && { dti: result.dti }),
+        ...(result.is_affordable !== undefined && { affordability: result }),
+        ...(result.spending_by_category && { spending: result })
+      };
+      
+      return {
+        ...prev,
+        lastCalculation: result,
+        calculations
+      };
+    });
   }, []);
   
   const addFollowUpSuggestions = useCallback((suggestions: string[]) => {
