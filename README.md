@@ -8,6 +8,9 @@ A proof-of-concept demonstrating a Neuro-Symbolic AI architecture for financial 
 ## Coach Marketplace Demo
 [![Coach Marketplace Demo](https://img.youtube.com/vi/KdiD4Wl1UK4/maxresdefault.jpg)](https://youtu.be/KdiD4Wl1UK4)
 
+## Credit Karma Coach Demo
+[![Coach Marketplace Demo](https://img.youtube.com/vi/VNM8sB_JK0k/maxresdefault.jpg)](https://youtu.be/VNM8sB_JK0k)
+
 ## Quick Start
 
 ### Prerequisites
