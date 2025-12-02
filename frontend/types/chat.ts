@@ -1,5 +1,5 @@
 export interface RichContent {
-  type: 'link' | 'youtube' | 'embed' | 'overlay' | 'card' | 'image' | 'property_listing';
+  type: 'link' | 'youtube' | 'embed' | 'overlay' | 'card' | 'image' | 'property_listing' | 'credit_dashboard' | 'credit_improvement_plan' | 'credit_score_simulator' | 'credit_monitoring_dashboard' | 'credit_card_comparison';
   title?: string;
   url?: string;
   description?: string;
@@ -8,7 +8,20 @@ export interface RichContent {
   price?: string;
   location?: string;
   features?: string[];
-  data?: any; // Additional data for overlays/cards
+  data?: any; // Additional data for overlays/cards/credit_dashboard
+  cards?: Array<{
+    name: string;
+    apr: number;
+    annualFee: number;
+    rewardsRate: string;
+    signUpBonus: string;
+    foreignTransactionFee: string;
+    creditScoreRequired: string;
+    approvalOdds: string;
+    approvalOddsPercent?: number;
+    bestFor?: string;
+    url?: string;
+  }>; // For credit card comparison
 }
 
 export interface Message {

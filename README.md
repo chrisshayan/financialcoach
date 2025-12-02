@@ -80,7 +80,14 @@ Try these chat prompts to explore different features:
 ### Coach Marketplace
 - **"I'm looking for a house"** or **"Help me find a property"** - Triggers Zillow Coach recommendation
 - **"I need a car loan"** or **"I want to buy a car"** - Triggers CarMax Coach recommendation
-- Once connected, chat directly with specialized coaches for domain-specific advice
+- **"What's my credit score?"** or **"How can I improve my credit?"** - Triggers Credit Karma Coach recommendation
+- **"What credit cards can I get?"** or **"Help me build credit"** - Connects to Credit Karma Coach
+  - "Show me the credit score simulator" or "What if I pay off $5,000 debt?"
+  - "Show me my credit monitoring dashboard" or "What are my credit alerts?"
+- Once connected, chat directly with specialized coaches for domain-specific advice:
+  - **Zillow Coach**: Property search, neighborhood analysis, home value estimates
+  - **CarMax Coach**: Car recommendations, auto loan pre-approval, financing options
+  - **Credit Karma Coach**: Credit score analysis, credit card recommendations, credit building strategies, credit report insights
 
 ### AI Transparency
 - Click **"Why this?"** on any recommendation to see:
@@ -142,10 +149,14 @@ Try these chat prompts to explore different features:
 - **Real-time Account Linking**: Simulated indicators for connected accounts
 
 ### Coach Marketplace
-- **Specialized Coaches**: Connect with domain experts (Zillow Coach for real estate, CarMax Coach for auto loans)
+- **Specialized Coaches**: Connect with domain experts:
+  - **Zillow Coach**: Real estate search, property recommendations, neighborhood insights
+  - **CarMax Coach**: Auto loan pre-approval, car search, financing options
+  - **Credit Karma Coach**: Credit score analysis, credit card recommendations, credit building strategies
 - **Consent Management**: Time-bound data sharing (24h, 3d, 7d) with granular permissions
 - **Multi-Coach Chat**: Switch between Financial Coach and specialized coaches seamlessly
 - **Smart Recommendations**: Financial Coach suggests relevant coaches based on conversation context
+- **Rich Visualizations**: Credit Karma Coach provides interactive credit score dashboards with radial gauges, factor breakdowns, and progress tracking
 
 ### Data & Integration
 - **Data Mesh**: Multi-account aggregation with real-time sync and account summary

@@ -4,9 +4,14 @@ import { Message, RichContent } from '@/types/chat';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useState } from 'react';
+import { CreditDashboard } from './CreditDashboard';
+import { CreditImprovementPlan } from './CreditImprovementPlan';
+import { CreditMonitoringDashboard } from './CreditMonitoringDashboard';
+import { CreditCardComparison } from './CreditCardComparison';
 
 interface MessageBubbleProps {
   message: Message;
+  onOpenCreditSimulator?: (data: any) => void;
 }
 
 function getCoachAvatar(coachId?: string, coachIcon?: string): { icon: string; bgColor: string } {
@@ -16,11 +21,48 @@ function getCoachAvatar(coachId?: string, coachIcon?: string): { icon: string; b
   if (coachId === 'carmax_coach') {
     return { icon: '🚗', bgColor: 'bg-orange-500/20' };
   }
+  if (coachId === 'credit_karma_coach') {
+    return { icon: '💳', bgColor: 'bg-purple-500/20' };
+  }
   // Financial Coach (default)
   return { icon: '🧠', bgColor: 'bg-primary/20' };
 }
 
-function RichContentRenderer({ content }: { content: RichContent }) {
+function CreditSimulatorTrigger({ data, onOpen }: { data: any; onOpen: (data: any) => void }) {
+  return (
+    <div className="p-4 bg-gradient-to-br from-purple-950/20 to-purple-900/10 border border-purple-800/50 rounded-xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h4 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <span className="text-2xl">🎯</span>
+            Credit Score Simulator
+          </h4>
+          <p className="text-sm text-muted-foreground mt-1">
+            See how different actions affect your credit score
+          </p>
+        </div>
+        <button
+          onClick={() => onOpen(data)}
+          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          Open Simulator
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <span className="text-muted-foreground">Current Score:</span>
+          <span className="ml-2 font-semibold text-foreground">{data.currentScore}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Credit Utilization:</span>
+          <span className="ml-2 font-semibold text-foreground">{data.creditUtilization.toFixed(1)}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RichContentRenderer({ content, onOpenCreditSimulator }: { content: RichContent; onOpenCreditSimulator?: (data: any) => void }) {
   const [showOverlay, setShowOverlay] = useState(false);
 
   switch (content.type) {
@@ -236,12 +278,59 @@ function RichContentRenderer({ content }: { content: RichContent }) {
         </div>
       );
 
+    case 'credit_dashboard':
+      return (
+        <div className="mt-3">
+          <CreditDashboard data={content.data} />
+        </div>
+      );
+
+    case 'credit_improvement_plan':
+      return (
+        <div className="mt-3">
+          <CreditImprovementPlan
+            currentScore={content.data.currentScore}
+            actions={content.data.actions}
+          />
+        </div>
+      );
+
+    case 'credit_score_simulator':
+      return (
+        <div className="mt-3">
+          <CreditSimulatorTrigger 
+            data={content.data} 
+            onOpen={onOpenCreditSimulator || (() => {})}
+          />
+        </div>
+      );
+
+    case 'credit_monitoring_dashboard':
+      return (
+        <div className="mt-3">
+          <CreditMonitoringDashboard
+            currentScore={content.data.currentScore}
+            creditUtilization={content.data.creditUtilization}
+            scoreHistory={content.data.scoreHistory}
+            alerts={content.data.alerts}
+            perCardUtilization={content.data.perCardUtilization}
+          />
+        </div>
+      );
+
+    case 'credit_card_comparison':
+      return (
+        <div className="mt-3">
+          <CreditCardComparison cards={content.cards || []} />
+        </div>
+      );
+
     default:
       return null;
   }
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onOpenCreditSimulator }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const avatar = !isUser ? getCoachAvatar(message.coachId, message.coachIcon) : null;
   
@@ -288,7 +377,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             {message.richContent && message.richContent.length > 0 && (
               <div className="mt-3 space-y-2">
                 {message.richContent.map((content, idx) => (
-                  <RichContentRenderer key={idx} content={content} />
+                  <RichContentRenderer key={idx} content={content} onOpenCreditSimulator={onOpenCreditSimulator} />
                 ))}
               </div>
             )}

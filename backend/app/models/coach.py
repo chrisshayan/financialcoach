@@ -84,6 +84,23 @@ AVAILABLE_COACHES = [
             "Vehicle recommendations"
         ],
         is_active=True
+    ),
+    Coach(
+        id="credit_karma_coach",
+        name="Credit Karma Coach",
+        description="Understand, monitor, and improve your credit score with personalized recommendations, credit card matches, and credit building strategies powered by Credit Karma.",
+        category=CoachCategory.CREDIT,
+        powered_by="CreditKarma.com",
+        icon="💳",
+        required_data=["credit_score", "credit_utilization", "credit_history"],
+        capabilities=[
+            "Credit score analysis",
+            "Credit card recommendations",
+            "Credit building strategies",
+            "Credit report insights",
+            "Debt consolidation advice"
+        ],
+        is_active=True
     )
 ]
 

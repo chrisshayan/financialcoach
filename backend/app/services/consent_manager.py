@@ -113,7 +113,11 @@ class ConsentManager:
             elif field == "savings":
                 shared_data["savings"] = user_context.get("savings", {})
             elif field == "credit_score":
-                shared_data["credit_score"] = user_context.get("credit", {}).get("score")
+                credit_score = user_context.get("credit", {}).get("score")
+                if credit_score is None:
+                    # Try alternative path
+                    credit_score = user_context.get("credit_score")
+                shared_data["credit_score"] = credit_score
             elif field == "affordability_range":
                 # Calculate from user context
                 monthly_income = user_context.get("income", {}).get("monthly_gross", 0)
@@ -126,6 +130,23 @@ class ConsentManager:
             elif field == "monthly_budget":
                 monthly_income = user_context.get("income", {}).get("monthly_gross", 0)
                 shared_data["monthly_budget"] = monthly_income * 0.15  # 15% of income for car
+            elif field == "credit_utilization":
+                # Calculate credit utilization from debts/credit cards
+                debts = user_context.get("debts", [])
+                total_balance = sum(d.get("balance", 0) for d in debts if d.get("type") == "credit_card")
+                total_limit = sum(d.get("credit_limit", 0) for d in debts if d.get("type") == "credit_card")
+                if total_limit > 0:
+                    shared_data["credit_utilization"] = (total_balance / total_limit) * 100
+                else:
+                    shared_data["credit_utilization"] = 0
+            elif field == "credit_history":
+                # Calculate average credit history from accounts
+                debts = user_context.get("debts", [])
+                if debts:
+                    # Mock calculation - in production would use actual account opening dates
+                    shared_data["credit_history"] = 5.0  # Average years
+                else:
+                    shared_data["credit_history"] = 0
         
         return shared_data
     

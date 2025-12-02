@@ -33,6 +33,7 @@ import { PlaidIntegration } from '@/components/PlaidIntegration';
 import { ConsentModal } from '@/components/ConsentModal';
 import { CoachRecommendation } from '@/components/CoachRecommendation';
 import { ActiveCoaches } from '@/components/ActiveCoaches';
+import { CreditScoreSimulator } from '@/components/CreditScoreSimulator';
 import { useConversation } from '@/hooks/useConversation';
 import { streamChatMessage } from '@/lib/chat-client';
 import { getCoaches, createConsent, revokeConsent, getUserConsents, sendCoachMessage } from '@/lib/coach-client';
@@ -74,6 +75,8 @@ export default function Home() {
   const [pendingCoach, setPendingCoach] = useState<Coach | null>(null);
   const [coachRecommendation, setCoachRecommendation] = useState<{ coach: Coach; reason: string } | null>(null);
   const [coachConversations, setCoachConversations] = useState<Record<string, Array<{ role: string; content: string }>>>({});
+  const [showCreditSimulator, setShowCreditSimulator] = useState(false);
+  const [creditSimulatorData, setCreditSimulatorData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Memoize existingGoals to prevent unnecessary re-renders of Onboarding
@@ -323,6 +326,16 @@ export default function Home() {
         lowerMessage.includes('auto loan') ||
         lowerMessage.includes('car financing');
     
+    const wantsCreditKarmaCoach = lowerMessage.includes('credit coach') || 
+        lowerMessage.includes('credit karma coach') || 
+        lowerMessage.includes('connect to credit') ||
+        lowerMessage.includes('switch to credit') ||
+        lowerMessage.includes('improve my credit') ||
+        lowerMessage.includes('credit score') ||
+        lowerMessage.includes('credit card') ||
+        lowerMessage.includes('build credit') ||
+        lowerMessage.includes('credit report');
+    
     const wantsToStopCoach = lowerMessage.includes('stop the') || 
         lowerMessage.includes('disconnect') ||
         lowerMessage.includes('remove coach') ||
@@ -424,6 +437,40 @@ export default function Home() {
         setCoachRecommendation({
           coach: carmaxCoach,
           reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+        });
+        addMessage({ role: 'user', content: message });
+        setInput('');
+        return;
+      }
+    }
+
+    if (wantsCreditKarmaCoach && selectedCoachId !== 'credit_karma_coach') {
+      // Only trigger switch/recommendation if NOT already on Credit Karma Coach
+      const coaches = await getCoaches();
+      const creditKarmaCoach = coaches.find(c => c.id === 'credit_karma_coach');
+      const isActive = activeCoaches.find(ac => ac.coach.id === 'credit_karma_coach');
+
+      if (creditKarmaCoach && isActive) {
+        // Switch to Credit Karma Coach
+        setSelectedCoachId('credit_karma_coach');
+        addMessage({
+          role: 'user',
+          content: message,
+        });
+        addMessage({
+          role: 'assistant',
+          content: 'Switched to Credit Karma Coach! I can help you understand and improve your credit score. What would you like to know?',
+          coachId: 'credit_karma_coach',
+          coachName: 'Credit Karma Coach',
+          coachIcon: '💳',
+        });
+        setInput('');
+        return;
+      } else if (creditKarmaCoach && !isActive) {
+        // Recommend connecting to Credit Karma Coach
+        setCoachRecommendation({
+          coach: creditKarmaCoach,
+          reason: 'I can connect you with Credit Karma Coach to help you understand and improve your credit score.'
         });
         addMessage({ role: 'user', content: message });
         setInput('');
@@ -650,6 +697,15 @@ export default function Home() {
             setCoachRecommendation({
               coach: carmaxCoach,
               reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+            });
+          }
+        } else if ((lowerFullResponse.includes('credit') && (lowerFullResponse.includes('score') || lowerFullResponse.includes('card') || lowerFullResponse.includes('improve') || lowerFullResponse.includes('build'))) && !activeCoaches.find(ac => ac.coach.id === 'credit_karma_coach')) {
+          const coaches = await getCoaches();
+          const creditKarmaCoach = coaches.find(c => c.id === 'credit_karma_coach');
+          if (creditKarmaCoach) {
+            setCoachRecommendation({
+              coach: creditKarmaCoach,
+              reason: 'I can connect you with Credit Karma Coach to help you understand and improve your credit score.'
             });
           }
         }
@@ -915,9 +971,15 @@ export default function Home() {
               </div>
             )}
 
-            {messages.map((msg) => (
-              <div key={msg.id}>
-                <MessageBubble message={msg} />
+          {messages.map((msg) => (
+            <div key={msg.id}>
+              <MessageBubble 
+                message={msg} 
+                onOpenCreditSimulator={(data) => {
+                  setCreditSimulatorData(data);
+                  setShowCreditSimulator(true);
+                }}
+              />
                 {msg.calculationResult && (
                   <>
                     <CalculationCard result={msg.calculationResult} />
@@ -1066,19 +1128,39 @@ export default function Home() {
         <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
         {/* Consent Modal */}
-        {/* Consent Modal - Inline in chat area */}
         {showConsentModal && pendingCoach && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <ConsentModal
-              coach={pendingCoach}
-              userId={selectedPersona}
-              onConsent={handleConsentGranted}
-              onCancel={() => {
-                setShowConsentModal(false);
-                setPendingCoach(null);
-              }}
-            />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6">
+            <div className="bg-background border-2 border-primary/30 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <ConsentModal
+                coach={pendingCoach}
+                userId={selectedPersona}
+                onConsent={handleConsentGranted}
+                onCancel={() => {
+                  setShowConsentModal(false);
+                  setPendingCoach(null);
+                }}
+              />
+            </div>
           </div>
+        )}
+
+        {/* Credit Score Simulator Modal */}
+        {showCreditSimulator && creditSimulatorData && (
+          <CreditScoreSimulator
+            currentScore={creditSimulatorData.currentScore}
+            creditUtilization={creditSimulatorData.creditUtilization}
+            creditHistory={creditSimulatorData.creditHistory}
+            paymentHistory={creditSimulatorData.paymentHistory}
+            creditMix={creditSimulatorData.creditMix}
+            newCredit={creditSimulatorData.newCredit}
+            totalDebt={creditSimulatorData.totalDebt}
+            creditLimit={creditSimulatorData.creditLimit}
+            isModal={true}
+            onClose={() => {
+              setShowCreditSimulator(false);
+              setCreditSimulatorData(null);
+            }}
+          />
         )}
         
         {/* Notification Center */}

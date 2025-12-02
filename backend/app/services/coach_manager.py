@@ -3,6 +3,7 @@
 from typing import Dict, Optional
 from app.coaches.zillow_coach import ZillowCoach
 from app.coaches.carmax_coach import CarMaxCoach
+from app.coaches.credit_karma_coach import CreditKarmaCoach
 from app.coaches.base_coach import BaseCoach
 import os
 from pathlib import Path
@@ -38,6 +39,7 @@ class CoachManager:
         
         self._coach_instances["zillow_coach"] = ZillowCoach()
         self._coach_instances["carmax_coach"] = CarMaxCoach()
+        self._coach_instances["credit_karma_coach"] = CreditKarmaCoach()
         self._initialized = True
     
     def get_coach(self, coach_id: str) -> Optional[BaseCoach]:
