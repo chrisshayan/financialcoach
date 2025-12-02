@@ -1,3 +1,16 @@
+export interface RichContent {
+  type: 'link' | 'youtube' | 'embed' | 'overlay' | 'card' | 'image' | 'property_listing';
+  title?: string;
+  url?: string;
+  description?: string;
+  thumbnail?: string;
+  image?: string; // Direct image URL
+  price?: string;
+  location?: string;
+  features?: string[];
+  data?: any; // Additional data for overlays/cards
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -5,6 +18,10 @@ export interface Message {
   timestamp: Date;
   isStreaming?: boolean;
   calculationResult?: CalculationResult;
+  coachId?: string; // 'financial_coach', 'zillow_coach', 'carmax_coach'
+  coachName?: string; // Display name for the coach
+  coachIcon?: string; // Emoji or icon for the coach
+  richContent?: RichContent[]; // Advanced content like links, embeds, overlays
 }
 
 export interface CalculationResult {

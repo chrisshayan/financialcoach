@@ -15,8 +15,16 @@ import json
 
 from app.agent.financial_agent import FinancialAgent
 from app.services.question_generator import generate_personalized_questions
+from app.models.coach import get_all_coaches, get_coach_by_id, CoachCategory
+from app.services.consent_manager import consent_manager
+from app.services.coach_manager import coach_manager
 from dotenv import load_dotenv
+from pathlib import Path
 
+# Load .env from backend directory
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
+# Also try loading from current directory as fallback
 load_dotenv()
 
 app = FastAPI(
@@ -50,6 +58,20 @@ async def root():
 class PersonalizedQuestionsRequest(BaseModel):
     user_id: str = "user_001"
     existing_goals: Optional[List[dict]] = None
+
+
+class ConsentRequestModel(BaseModel):
+    coach_id: str
+    data_fields: List[str]
+    duration_hours: int
+    user_id: str
+
+
+class CoachMessageRequest(BaseModel):
+    message: str
+    coach_id: str
+    user_id: str = "user_001"
+    conversation_history: Optional[List[dict]] = None
 
 
 @app.post("/api/personalized-questions")
@@ -227,6 +249,132 @@ def _generate_follow_ups(response: str, calculations: dict) -> List[str]:
                 suggestions.append("Create my personalized action plan")
     
     return suggestions[:3]  # Limit to 3 suggestions
+
+
+# Coach Marketplace Endpoints
+
+@app.get("/api/coaches")
+async def list_coaches():
+    """List all available coaches"""
+    coaches = get_all_coaches()
+    return {"coaches": [coach.dict() for coach in coaches]}
+
+
+@app.get("/api/coaches/{coach_id}")
+async def get_coach(coach_id: str):
+    """Get a specific coach by ID"""
+    coach = get_coach_by_id(coach_id)
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach not found")
+    return {"coach": coach.dict()}
+
+
+@app.post("/api/consent")
+async def grant_consent(request: ConsentRequestModel):
+    """Grant consent to share data with a coach"""
+    try:
+        from app.models.coach import ConsentRequest
+        consent_request = ConsentRequest(
+            coach_id=request.coach_id,
+            data_fields=request.data_fields,
+            duration_hours=request.duration_hours,
+            user_id=request.user_id
+        )
+        consent = consent_manager.create_consent(consent_request)
+        return {"consent": consent.dict()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating consent: {str(e)}")
+
+
+@app.delete("/api/consent/{coach_id}")
+async def revoke_consent(coach_id: str, user_id: str = "user_001"):
+    """Revoke consent for a coach"""
+    success = consent_manager.revoke_consent(user_id, coach_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="No active consent found")
+    return {"success": True, "message": "Consent revoked"}
+
+
+@app.get("/api/consent/{user_id}")
+async def get_user_consents(user_id: str):
+    """Get all active consents for a user"""
+    consents = consent_manager.get_active_consents(user_id)
+    return {"consents": [consent.dict() for consent in consents]}
+
+
+@app.post("/api/coaches/{coach_id}/chat")
+async def coach_chat(coach_id: str, request: CoachMessageRequest):
+    """Chat with a specific coach"""
+    # Ensure environment is loaded
+    load_dotenv(dotenv_path=env_path)
+    load_dotenv()
+    
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY not set in environment variables. Please create a .env file in the backend directory with OPENAI_API_KEY=your_key_here"
+        )
+    
+    coach_instance = coach_manager.get_coach(coach_id)
+    if not coach_instance:
+        raise HTTPException(status_code=404, detail="Coach not found")
+    
+    # Check if user has consent
+    if not consent_manager.has_consent(request.user_id, coach_id):
+        raise HTTPException(
+            status_code=403,
+            detail="No active consent for this coach. Please grant consent first."
+        )
+    
+    # Load user context
+    from app.agent.tools import _load_user_context
+    user_context = _load_user_context(request.user_id)
+    
+    # Get shared data based on consent
+    shared_data = consent_manager.get_shared_data(
+        request.user_id,
+        coach_id,
+        user_context
+    )
+    
+    if not shared_data:
+        raise HTTPException(
+            status_code=403,
+            detail="Unable to retrieve shared data. Consent may have expired."
+        )
+    
+    # Process message with coach
+    try:
+        response = await coach_instance.process_message(
+            message=request.message,
+            shared_data=shared_data,
+            conversation_history=request.conversation_history
+        )
+        
+        # Parse response for structured data (richContent, suggestions)
+        import json
+        parsed_response = {"response": response, "coach_id": coach_id, "coach_name": coach_instance.name}
+        
+        try:
+            if response.startswith('{') and ('richContent' in response or 'suggestions' in response):
+                structured = json.loads(response)
+                parsed_response["response"] = structured.get("content", response)
+                if "richContent" in structured:
+                    parsed_response["richContent"] = structured["richContent"]
+                if "suggestions" in structured:
+                    parsed_response["suggestions"] = structured["suggestions"]
+        except json.JSONDecodeError:
+            # Not JSON, use as-is
+            pass
+        
+        return parsed_response
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing message: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

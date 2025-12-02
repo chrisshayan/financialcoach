@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { MessageBubble } from '@/components/MessageBubble';
 import { CalculationCard } from '@/components/CalculationCard';
 import { FollowUpSuggestions } from '@/components/FollowUpSuggestions';
@@ -30,8 +30,13 @@ import { GoalManagement, Goal } from '@/components/GoalManagement';
 import { GoalWizard } from '@/components/GoalWizard';
 import { GoalRecommendation } from '@/components/GoalRecommendation';
 import { PlaidIntegration } from '@/components/PlaidIntegration';
+import { ConsentModal } from '@/components/ConsentModal';
+import { CoachRecommendation } from '@/components/CoachRecommendation';
+import { ActiveCoaches } from '@/components/ActiveCoaches';
 import { useConversation } from '@/hooks/useConversation';
 import { streamChatMessage } from '@/lib/chat-client';
+import { getCoaches, createConsent, revokeConsent, getUserConsents, sendCoachMessage } from '@/lib/coach-client';
+import { Coach, Consent } from '@/types/coach';
 
 export default function Home() {
   const {
@@ -63,7 +68,23 @@ export default function Home() {
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>(undefined);
   const [showAITransparency, setShowAITransparency] = useState(false);
   const [currentExplanation, setCurrentExplanation] = useState<any>(null);
+  const [activeCoaches, setActiveCoaches] = useState<Array<{ coach: Coach; consent: Consent }>>([]);
+  const [selectedCoachId, setSelectedCoachId] = useState<string | undefined>(undefined);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [pendingCoach, setPendingCoach] = useState<Coach | null>(null);
+  const [coachRecommendation, setCoachRecommendation] = useState<{ coach: Coach; reason: string } | null>(null);
+  const [coachConversations, setCoachConversations] = useState<Record<string, Array<{ role: string; content: string }>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Memoize existingGoals to prevent unnecessary re-renders of Onboarding
+  const existingGoalsForOnboarding = useMemo(() => 
+    goals.map(g => ({
+      type: g.type,
+      name: g.name,
+      status: g.status
+    })),
+    [goals]
+  );
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -199,9 +220,351 @@ export default function Home() {
     }
   }, [conversationState.calculations, userContext, celebratedMilestone]);
   
+  const handleCoachConnect = async (coach: Coach) => {
+    setPendingCoach(coach);
+    setShowConsentModal(true);
+    setCoachRecommendation(null);
+  };
+
+  const handleConsentGranted = async (consentRequest: any) => {
+    try {
+      const consent = await createConsent(consentRequest);
+      const coaches = await getCoaches();
+      const coach = coaches.find(c => c.id === consent.coach_id);
+      
+      if (coach) {
+        setActiveCoaches(prev => [...prev, { coach, consent }]);
+        setSelectedCoachId(coach.id);
+        setCoachConversations(prev => ({ ...prev, [coach.id]: [] }));
+        
+        // Send welcome message
+        const welcomeMessage = `Hi! I'm ${coach.name}, powered by ${coach.powered_by}. How can I help you today?`;
+        addMessage({
+          role: 'assistant',
+          content: welcomeMessage,
+          coachId: coach.id,
+          coachName: coach.name,
+          coachIcon: coach.icon,
+        });
+        setCoachConversations(prev => ({
+          ...prev,
+          [coach.id]: [
+            { role: 'assistant', content: welcomeMessage }
+          ]
+        }));
+        
+        // Scroll to bottom to show the welcome message
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+      
+      setShowConsentModal(false);
+      setPendingCoach(null);
+    } catch (error) {
+      console.error('Error granting consent:', error);
+      alert('Failed to connect with coach. Please try again.');
+    }
+  };
+
+  const handleRemoveCoach = async (coachId: string) => {
+    try {
+      await revokeConsent(coachId, selectedPersona);
+      setActiveCoaches(prev => prev.filter(ac => ac.coach.id !== coachId));
+      if (selectedCoachId === coachId) {
+        setSelectedCoachId(undefined);
+      }
+      delete coachConversations[coachId];
+    } catch (error) {
+      console.error('Error removing coach:', error);
+    }
+  };
+
   const handleSend = async (messageText?: string) => {
+    const message = messageText || input.trim();
+    if (!message) return;
+
+    const lowerMessage = message.toLowerCase();
+    
+    // Check if user wants to switch coaches (check this FIRST, even if a coach is selected)
+    const wantsFinancialCoach = lowerMessage.includes('finance coach') || 
+        lowerMessage.includes('financial coach') || 
+        lowerMessage.includes('finance coach are you there') ||
+        lowerMessage.includes('switch to finance') ||
+        lowerMessage.includes('switch back to finance') ||
+        lowerMessage.includes('back to finance') ||
+        lowerMessage.includes('go back to finance');
+    
+    const wantsZillowCoach = lowerMessage.includes('home coach') || 
+        lowerMessage.includes('zillow coach') || 
+        lowerMessage.includes('connect to home coach') ||
+        lowerMessage.includes('connect to zillow') ||
+        lowerMessage.includes('switch to zillow') ||
+        lowerMessage.includes('switch back to home coach') ||
+        lowerMessage.includes('switch back to a home coach') ||
+        lowerMessage.includes('switch to home') ||
+        lowerMessage.includes('i want to buy a home') ||
+        lowerMessage.includes('i want to buy a house') ||
+        lowerMessage.includes('buy a home') ||
+        lowerMessage.includes('buy a house') ||
+        lowerMessage.includes('homes available') ||
+        lowerMessage.includes('homes in seattle') ||
+        lowerMessage.includes('properties in seattle') ||
+        lowerMessage.includes('real estate') ||
+        lowerMessage.includes('property search');
+    
+    const wantsCarMaxCoach = lowerMessage.includes('car coach') || 
+        lowerMessage.includes('carmax coach') || 
+        lowerMessage.includes('connect to car coach') ||
+        lowerMessage.includes('switch to carmax') ||
+        lowerMessage.includes('switch to car') ||
+        lowerMessage.includes('i want to buy a car') ||
+        lowerMessage.includes('buy a car') ||
+        lowerMessage.includes('auto loan') ||
+        lowerMessage.includes('car financing');
+    
+    const wantsToStopCoach = lowerMessage.includes('stop the') || 
+        lowerMessage.includes('disconnect') ||
+        lowerMessage.includes('remove coach') ||
+        (lowerMessage.includes('stop') && selectedCoachId);
+
+    // Handle coach switching - CHECK THIS FIRST, even if a coach is selected
+    // This allows users to switch coaches mid-conversation
+    
+    if (wantsToStopCoach && selectedCoachId) {
+      setSelectedCoachId(undefined);
+      addMessage({
+        role: 'user',
+        content: message,
+      });
+      addMessage({
+        role: 'assistant',
+        content: 'Switched back to Financial Coach. How can I help you?',
+        coachId: 'financial_coach',
+        coachName: 'Financial Coach',
+        coachIcon: '🧠',
+      });
+      setInput('');
+      return;
+    }
+
+    if (wantsFinancialCoach && selectedCoachId) {
+      setSelectedCoachId(undefined);
+      addMessage({
+        role: 'user',
+        content: message,
+      });
+      addMessage({
+        role: 'assistant',
+        content: 'Hi! I\'m your Financial Coach. How can I help you with your financial goals today?',
+        coachId: 'financial_coach',
+        coachName: 'Financial Coach',
+        coachIcon: '🧠',
+      });
+      setInput('');
+      return;
+    }
+
+    if (wantsZillowCoach) {
+      const coaches = await getCoaches();
+      const zillowCoach = coaches.find(c => c.id === 'zillow_coach');
+      const isActive = activeCoaches.find(ac => ac.coach.id === 'zillow_coach');
+      
+      if (zillowCoach && isActive) {
+        // Switch to Zillow Coach
+        setSelectedCoachId('zillow_coach');
+        addMessage({
+          role: 'user',
+          content: message,
+        });
+        addMessage({
+          role: 'assistant',
+          content: 'Switched to Zillow Coach! I can help you find properties in Seattle and explore neighborhoods. What are you looking for in a home?',
+          coachId: 'zillow_coach',
+          coachName: 'Zillow Coach',
+          coachIcon: '🏠',
+        });
+        setInput('');
+        return;
+      } else if (zillowCoach && !isActive) {
+        // Recommend connecting to Zillow Coach
+        setCoachRecommendation({
+          coach: zillowCoach,
+          reason: 'I can connect you with Zillow Coach to help you search for properties and explore neighborhoods.'
+        });
+        addMessage({ role: 'user', content: message });
+        setInput('');
+        return;
+      }
+    }
+
+    if (wantsCarMaxCoach) {
+      const coaches = await getCoaches();
+      const carmaxCoach = coaches.find(c => c.id === 'carmax_coach');
+      const isActive = activeCoaches.find(ac => ac.coach.id === 'carmax_coach');
+      
+      if (carmaxCoach && isActive) {
+        // Switch to CarMax Coach
+        setSelectedCoachId('carmax_coach');
+        addMessage({
+          role: 'user',
+          content: message,
+        });
+        addMessage({
+          role: 'assistant',
+          content: 'Switched to CarMax Coach! I can help you find the perfect car and explore financing options. What type of vehicle are you looking for?',
+          coachId: 'carmax_coach',
+          coachName: 'CarMax Coach',
+          coachIcon: '🚗',
+        });
+        setInput('');
+        return;
+      } else if (carmaxCoach && !isActive) {
+        // Recommend connecting to CarMax Coach
+        setCoachRecommendation({
+          coach: carmaxCoach,
+          reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+        });
+        addMessage({ role: 'user', content: message });
+        setInput('');
+        return;
+      }
+    }
+
+    // If a coach is selected, send message to that coach
+    if (selectedCoachId) {
+      const coach = activeCoaches.find(ac => ac.coach.id === selectedCoachId)?.coach;
+      if (!coach) return;
+
+      addMessage({
+        role: 'user',
+        content: message,
+      });
+
+      setInput('');
+      setIsStreaming(true);
+
+      try {
+        const history = coachConversations[selectedCoachId] || [];
+        const responseData = await sendCoachMessage(selectedCoachId, message, selectedPersona, history);
+        
+        // Response can be a string or an object with richContent/suggestions
+        let responseText = '';
+        let richContent: any[] = [];
+        let suggestions: string[] = [];
+        
+        if (typeof responseData === 'string') {
+          responseText = responseData;
+          // Try to parse if it's JSON
+          try {
+            if (responseData.startsWith('{')) {
+              const parsed = JSON.parse(responseData);
+              responseText = parsed.content || responseData;
+              richContent = parsed.richContent || [];
+              suggestions = parsed.suggestions || [];
+            }
+          } catch (e) {
+            // Not JSON, use as-is
+          }
+        } else if (typeof responseData === 'object') {
+          responseText = responseData.response || '';
+          richContent = responseData.richContent || [];
+          suggestions = responseData.suggestions || [];
+        }
+
+        addMessage({
+          role: 'assistant',
+          content: responseText,
+          coachId: selectedCoachId,
+          coachName: coach.name,
+          coachIcon: coach.icon,
+          richContent: richContent,
+        });
+        
+        // Add follow-up suggestions if provided
+        if (suggestions && suggestions.length > 0) {
+          addFollowUpSuggestions(suggestions);
+        }
+
+        setCoachConversations(prev => ({
+          ...prev,
+          [selectedCoachId]: [
+            ...history,
+            { role: 'user', content: message },
+            { role: 'assistant', content: responseText }
+          ]
+        }));
+      } catch (error: any) {
+        console.error('Error sending coach message:', error);
+        addMessage({
+          role: 'assistant',
+          content: `Sorry, I encountered an error: ${error.message || 'Please try again.'}`,
+          coachId: selectedCoachId,
+          coachName: coach.name,
+          coachIcon: coach.icon,
+        });
+      } finally {
+        setIsStreaming(false);
+      }
+      return;
+    }
+
+    // Otherwise, send to financial coach as usual
     const userMessage = (messageText || input.trim());
     if (!userMessage || isStreaming) return;
+    
+    // Check if user is trying to connect to a coach or responding to connection prompt
+    const lowerUserMessage = userMessage.toLowerCase();
+    const isConnectionRequest = lowerUserMessage.includes('connect me to zillow') || 
+        lowerUserMessage.includes('connect to zillow') ||
+        lowerUserMessage.includes('zillow coach') ||
+        lowerUserMessage.includes('connect me to carmax') || 
+        lowerUserMessage.includes('connect to carmax') ||
+        lowerUserMessage.includes('carmax coach');
+    
+    // Check if user is responding to duration prompt (e.g., "3 days", "24 hours", "7 days")
+    const isDurationResponse = /\d+\s*(day|hour|d|h)/i.test(userMessage) || 
+        lowerUserMessage.includes('24 hours') || 
+        lowerUserMessage.includes('3 days') || 
+        lowerUserMessage.includes('7 days') ||
+        lowerUserMessage === '3 days is ok' ||
+        lowerUserMessage === '24 hours is ok' ||
+        lowerUserMessage === '7 days is ok';
+    
+    if (isConnectionRequest || isDurationResponse) {
+      // Check if we have a pending coach recommendation
+      if (coachRecommendation) {
+        // User is responding to the recommendation - trigger consent modal
+        setPendingCoach(coachRecommendation.coach);
+        setShowConsentModal(true);
+        addMessage({ role: 'user', content: userMessage });
+        return;
+      } else if (isConnectionRequest) {
+        // User is requesting connection directly
+        const coaches = await getCoaches();
+        if (lowerUserMessage.includes('zillow')) {
+          const zillowCoach = coaches.find(c => c.id === 'zillow_coach');
+          if (zillowCoach && !activeCoaches.find(ac => ac.coach.id === 'zillow_coach')) {
+            setCoachRecommendation({
+              coach: zillowCoach,
+              reason: 'I can connect you with Zillow Coach to help you search for properties and explore neighborhoods.'
+            });
+            addMessage({ role: 'user', content: userMessage });
+            return;
+          }
+        } else if (lowerUserMessage.includes('carmax')) {
+          const carmaxCoach = coaches.find(c => c.id === 'carmax_coach');
+          if (carmaxCoach && !activeCoaches.find(ac => ac.coach.id === 'carmax_coach')) {
+            setCoachRecommendation({
+              coach: carmaxCoach,
+              reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+            });
+            addMessage({ role: 'user', content: userMessage });
+            return;
+          }
+        }
+      }
+    }
     
     setInput('');
     addMessage({ role: 'user', content: userMessage });
@@ -211,7 +574,10 @@ export default function Home() {
     const typingId = addMessage({ 
       role: 'assistant', 
       content: '', 
-      isStreaming: true 
+      isStreaming: true,
+      coachId: 'financial_coach',
+      coachName: 'Financial Coach',
+      coachIcon: '🧠'
     });
     
     let fullResponse = '';
@@ -225,6 +591,30 @@ export default function Home() {
         (chunk: string) => {
           fullResponse += chunk;
           updateLastMessage(typingId, fullResponse);
+          // Check for coach recommendations in the response
+          const lowerChunk = chunk.toLowerCase();
+          if ((lowerChunk.includes('zillow') || lowerChunk.includes('property') || lowerChunk.includes('home search') || lowerChunk.includes('real estate')) && !coachRecommendation) {
+            getCoaches().then(coaches => {
+              const zillowCoach = coaches.find(c => c.id === 'zillow_coach');
+              if (zillowCoach && !activeCoaches.find(ac => ac.coach.id === 'zillow_coach')) {
+                setCoachRecommendation({
+                  coach: zillowCoach,
+                  reason: 'I can connect you with Zillow Coach to help you search for properties and explore neighborhoods.'
+                });
+              }
+            });
+          }
+          if ((lowerChunk.includes('carmax') || lowerChunk.includes('car') || lowerChunk.includes('auto loan') || lowerChunk.includes('vehicle')) && !coachRecommendation) {
+            getCoaches().then(coaches => {
+              const carmaxCoach = coaches.find(c => c.id === 'carmax_coach');
+              if (carmaxCoach && !activeCoaches.find(ac => ac.coach.id === 'carmax_coach')) {
+                setCoachRecommendation({
+                  coach: carmaxCoach,
+                  reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+                });
+              }
+            });
+          }
         },
         (calculation: any) => {
           // Handle calculation results - can be multiple
@@ -238,8 +628,32 @@ export default function Home() {
         }
       );
       
-      // Remove typing indicator
-      updateLastMessage(typingId, fullResponse, false);
+      // Remove typing indicator and set coach info
+      updateLastMessage(typingId, fullResponse, false, 'financial_coach', 'Financial Coach', '🧠');
+      
+      // Check full response for coach recommendations
+      const lowerFullResponse = fullResponse.toLowerCase();
+      if (!coachRecommendation) {
+        if ((lowerFullResponse.includes('zillow') || lowerFullResponse.includes('property') || lowerFullResponse.includes('home search') || lowerFullResponse.includes('real estate')) && !activeCoaches.find(ac => ac.coach.id === 'zillow_coach')) {
+          const coaches = await getCoaches();
+          const zillowCoach = coaches.find(c => c.id === 'zillow_coach');
+          if (zillowCoach) {
+            setCoachRecommendation({
+              coach: zillowCoach,
+              reason: 'I can connect you with Zillow Coach to help you search for properties and explore neighborhoods.'
+            });
+          }
+        } else if ((lowerFullResponse.includes('carmax') || (lowerFullResponse.includes('car') && (lowerFullResponse.includes('loan') || lowerFullResponse.includes('buy') || lowerFullResponse.includes('financing')))) && !activeCoaches.find(ac => ac.coach.id === 'carmax_coach')) {
+          const coaches = await getCoaches();
+          const carmaxCoach = coaches.find(c => c.id === 'carmax_coach');
+          if (carmaxCoach) {
+            setCoachRecommendation({
+              coach: carmaxCoach,
+              reason: 'I can connect you with CarMax Coach to help you find a car and explore financing options.'
+            });
+          }
+        }
+      }
       
     } catch (error) {
       updateLastMessage(
@@ -415,11 +829,7 @@ export default function Home() {
                 onDismiss={() => setShowOnboarding(false)}
                 userContext={userContext}
                 userId={selectedPersona}
-                existingGoals={goals.map(g => ({
-                  type: g.type,
-                  name: g.name,
-                  status: g.status
-                }))}
+                existingGoals={existingGoalsForOnboarding}
               />
             </div>
           )}
@@ -453,6 +863,58 @@ export default function Home() {
           )}
           
           <div className="max-w-3xl mx-auto space-y-4">
+            {/* Active Coaches - Sticky at top of chat area */}
+            {activeCoaches.length > 0 && (
+              <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-2 pt-2 -mt-2">
+                <ActiveCoaches
+                  activeCoaches={activeCoaches}
+                  onRemoveCoach={handleRemoveCoach}
+                  onSelectCoach={setSelectedCoachId}
+                  selectedCoachId={selectedCoachId}
+                  onBackToFinancial={() => setSelectedCoachId(undefined)}
+                />
+              </div>
+            )}
+
+            {/* Show selected coach indicator */}
+            {selectedCoachId && (
+              <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-center gap-2">
+                <span className="text-lg">
+                  {activeCoaches.find(ac => ac.coach.id === selectedCoachId)?.coach.icon}
+                </span>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">
+                    Chatting with {activeCoaches.find(ac => ac.coach.id === selectedCoachId)?.coach.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Switch back to Financial Coach or select another coach above
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedCoachId(undefined)}
+                  className="px-3 py-1 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Back to Financial Coach
+                </button>
+              </div>
+            )}
+
+
+            {/* Consent Modal - Inline in chat area */}
+            {showConsentModal && pendingCoach && (
+              <div className="p-4 bg-background border-2 border-primary/30 rounded-xl shadow-2xl">
+                <ConsentModal
+                  coach={pendingCoach}
+                  userId={selectedPersona}
+                  onConsent={handleConsentGranted}
+                  onCancel={() => {
+                    setShowConsentModal(false);
+                    setPendingCoach(null);
+                  }}
+                />
+              </div>
+            )}
+
             {messages.map((msg) => (
               <div key={msg.id}>
                 <MessageBubble message={msg} />
@@ -575,6 +1037,16 @@ export default function Home() {
                 )}
               </div>
             ))}
+
+            {/* Coach Recommendation - Inline with messages */}
+            {coachRecommendation && (
+              <CoachRecommendation
+                coach={coachRecommendation.coach}
+                reason={coachRecommendation.reason}
+                onConnect={handleCoachConnect}
+                onDismiss={() => setCoachRecommendation(null)}
+              />
+            )}
             
             {/* Follow-up suggestions */}
             {conversationState.suggestedFollowUps.length > 0 && (
@@ -592,6 +1064,22 @@ export default function Home() {
         
         {/* Settings Panel */}
         <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+
+        {/* Consent Modal */}
+        {/* Consent Modal - Inline in chat area */}
+        {showConsentModal && pendingCoach && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <ConsentModal
+              coach={pendingCoach}
+              userId={selectedPersona}
+              onConsent={handleConsentGranted}
+              onCancel={() => {
+                setShowConsentModal(false);
+                setPendingCoach(null);
+              }}
+            />
+          </div>
+        )}
         
         {/* Notification Center */}
         <NotificationCenter

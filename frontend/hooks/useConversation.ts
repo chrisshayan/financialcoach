@@ -23,11 +23,14 @@ export function useConversation() {
   const updateLastMessage = useCallback((
     id: string, 
     content: string, 
-    isStreaming: boolean = true
+    isStreaming: boolean = true,
+    coachId?: string,
+    coachName?: string,
+    coachIcon?: string
   ) => {
     setMessages(prev => prev.map(msg => 
       msg.id === id 
-        ? { ...msg, content, isStreaming }
+        ? { ...msg, content, isStreaming, coachId, coachName, coachIcon }
         : msg
     ));
   }, []);

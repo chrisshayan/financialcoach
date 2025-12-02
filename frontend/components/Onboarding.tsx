@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getPersonalizedQuestions } from '@/lib/api-client';
 
 interface OnboardingProps {
@@ -21,13 +21,31 @@ export function Onboarding({ onSelectExample, onDismiss, userContext, userId = '
   const [exampleQuestions, setExampleQuestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const userName = userContext?.name || 'First-Time Home Buyer';
+  const hasLoadedRef = useRef(false);
+  const lastUserIdRef = useRef<string>(userId);
+  const lastGoalsRef = useRef<string>('');
 
   useEffect(() => {
+    // Create a stable string representation of goals for comparison
+    const goalsKey = JSON.stringify(existingGoals || []);
+    
+    // Only reload if userId changed or goals actually changed (not just reference)
+    const userIdChanged = lastUserIdRef.current !== userId;
+    const goalsChanged = lastGoalsRef.current !== goalsKey;
+    
+    // If we've already loaded and nothing meaningful changed, don't reload
+    if (hasLoadedRef.current && !userIdChanged && !goalsChanged) {
+      return;
+    }
+    
     async function loadQuestions() {
       setIsLoading(true);
       try {
         const questions = await getPersonalizedQuestions(userId, existingGoals);
         setExampleQuestions(questions);
+        hasLoadedRef.current = true;
+        lastUserIdRef.current = userId;
+        lastGoalsRef.current = goalsKey;
       } catch (error) {
         console.error('Error loading personalized questions:', error);
         // Fallback questions
@@ -38,6 +56,9 @@ export function Onboarding({ onSelectExample, onDismiss, userContext, userId = '
           "Analyze my spending patterns",
           "Should I create an emergency fund goal?"
         ]);
+        hasLoadedRef.current = true;
+        lastUserIdRef.current = userId;
+        lastGoalsRef.current = goalsKey;
       } finally {
         setIsLoading(false);
       }
