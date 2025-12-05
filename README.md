@@ -2,7 +2,7 @@
 
 A proof-of-concept demonstrating a Neuro-Symbolic AI architecture for financial coaching. The LLM identifies financial intents, delegates calculations to a deterministic engine, and narrates results without hallucinating numbers.
 
-## Financial Coach Demo
+## Financial Mortgage Readiness Coach Demo
 [![Financial Coach Demo](https://img.youtube.com/vi/hw-BSe4MB9Q/maxresdefault.jpg)](https://youtu.be/hw-BSe4MB9Q)
 
 ## Coach Marketplace Demo
